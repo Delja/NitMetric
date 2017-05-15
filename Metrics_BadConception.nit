@@ -12,10 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Example of simple module that aims to do some specific work on nit programs.
-#
-# Fast prototypes can just start with this skeletton.
-module test_test_phase
 
 # We need the framework that perfoms standard code for the main-program
 import test_phase
@@ -23,6 +19,12 @@ import test_phase
 # We usualy need specific phases
 # NOTE: `frontend` is sufficent in most case (it is often too much)
 import frontend
+
+import metrics_base
+import mclasses_metrics
+import semantize
+
+import method_analyse_metrics
 
 # The body of the specific work.
 # The main entry point is provided by `test_phase`,
@@ -32,8 +34,9 @@ do
 	var model = modelbuilder.model
 	var mclasses = mainmodule.flatten_mclass_hierarchy
 
+
 	#New array of classedef
-	var mclassdef = new Array [MClassDef]
+	var aclassdefs = new Array [AClassdef]
 
 	#New array of classe
 	var mclasse = new Array [MClass]
@@ -41,22 +44,27 @@ do
 	# search all class and classdef and put they in the array
 	for m in mclasses do
 		mclasse.add(m)
-		for cd in m.mclassdefs do
-			mclassdef.add(cd)
+	end
+
+	for nmodule in modelbuilder.nmodules do
+		for nclassdef in nmodule.n_classdefs do
+			aclassdefs.add(nclassdef)
 		end
 	end
 
 
-	# Execute antipattern detection
-	for m in mclassdef do
-		print "Class : {m.name}"
-		m.mclassantipatterns.collect(m)
-		m.mclasscodesmell.collect(m)
-		m.mclassantipatterns.printAll
-		m.mclasscodesmell.printAll
+	for aclassdef in aclassdefs do
+		# Execute antipattern detection
+		var m = aclassdef.mclassdef
+		if m != null then
+			print "Class : {m.name}"
+			m.mclassantipatterns.collect(aclassdef)
+			m.mclasscodesmell.collect(aclassdef)
+			m.mclassantipatterns.printAll
+			m.mclasscodesmell.printAll
+		end		
 	end
 end
-
 
 class BadConceptions
 	#Code smell list
@@ -69,8 +77,8 @@ class BadConceptions
 		end
 	end
 
-	#Colection
-	fun collect(classe : MClassDef)do 
+	#Collection
+	fun collect(classe : AClassdef)do 
 		for cd in badConceptionElement do
 			cd.collect(classe)
 		end 
@@ -91,6 +99,8 @@ class CodeSmells
 	init do
 		badConceptionElement.add(new LARGC)
 		badConceptionElement.add(new LONGPL)
+		badConceptionElement.add(new FEM)
+		badConceptionElement.add(new LONGMETH)
 	end
 end
 
@@ -111,7 +121,7 @@ class BadConception
 	end
 
 	#Collection method
-	fun collect(classe : MClassDef)do end
+	fun collect(classe : AClassdef)do end
 
 	#Show results in console
 	fun printResult do
@@ -140,7 +150,10 @@ class LARGC
 		return "Large class"
 	end
 
-	redef fun collect(classe) do
+	redef fun collect(aclasse) do
+
+		#get class definition 
+		var classe = aclasse.mclassdef
 		var numberAttribut = classe.collect_intro_mattributes.length
 		#get the number of methods and subtract the get and set of attibutes (numberAtribut*2)
 		var numberMethode = classe.collect_intro_mattributes.length - (numberAttribut*2)
@@ -160,15 +173,17 @@ class LONGPL
 		return "Long parameter list"
 	end
 
-	redef fun collect(classe) do
+	redef fun collect(aclasse) do
+		#get class definition 
+		var classe = aclasse.mclassdef
 		for meth in classe.mpropdefs do
+			#check if the property is a method definition
 			if meth isa MMethodDef then
+				#Check if method has a signature
 				if meth.msignature != null then
-					if meth.msignature.mparameters  != null then
-						if meth.msignature.mparameters.length >= 4 then 
-							badmethode.add(meth)
-							result = true
-						end
+					if meth.msignature.mparameters.length >= 4 then 
+						badmethode.add(meth)
+						result = true
 					end
 				end
 			end
@@ -178,44 +193,88 @@ class LONGPL
 
 	redef fun printResult do
 		print "{desc} :  {result}"
-		if badmethode.length >= 1 then print "   Affected method :"
-		for methode in badmethode do 
-			print "    {methode.name}"
+		if badmethode.length >= 1 then 
+			print "   Affected method :"
+			for methode in badmethode do 
+				print "    {methode.name}"
+			end
 		end
 	end
 end
 
-# Not implemented
-class GOC
-	super Antipattern
 
-	# Name
+class FEM
+	super CodeSmell
+
+	var badmethode = new Array[AIdMethid] 
+
 	redef fun name do 
-		return "Goc"
+		return "FEM"
 	end
-
-	#Description
 	redef fun desc do 
-		return "God of class"
+		return "Feature envy"
 	end
 
-	#Collection method
-	redef fun collect(classe : MClassDef) do
-		
+	redef fun collect(aclasse) do
+
+		#Call the visit class method
+		var visits = callvisiteMethodAnalyse(aclasse)
+
+		for visit in visits do
+			if visit.total_call.length < visit.total_call_self.length then
+				result = true
+				badmethode.add(visit.nclassdef.n_methid.as(AIdMethid))
+			end
+		end
+
+	end
+
+
+	redef fun printResult do
+		print "{desc} :  {result}"
+		if badmethode.length >= 1 then 
+			print "   Affected method :"
+			for methode in badmethode do 
+				print "    {methode.n_id.text}"
+			end
+		end
 	end
 end
 
-#Not implemented
-# Dans cette formule I représente le nombre d’attributs de la classe, 
-# K le nombre de méthodes et A représente la somme du nombre d’attribut accédé par chaque méthode.
-class LCOM5
-	#Init Result
-	var result = 0
+class LONGMETH
+	super CodeSmell
 
-	init(l: Int, k : Int, a :Int) do
-		result = (a - k) / (l - k) 
+	var badmethode = new Array[AIdMethid] 
+
+	redef fun name do 
+		return "LONGMETH"
 	end
-end	
+	redef fun desc do 
+		return "Long method"
+	end
+
+	redef fun collect(aclasse) do
+		var visits = callvisiteMethodAnalyse(aclasse)
+
+		for visit in visits do
+			if visit.lineDetail.length > 30 then
+				result = true
+				badmethode.add(visit.nclassdef.n_methid.as(AIdMethid))
+			end
+		end
+	end
+
+
+	redef fun printResult do
+		print "{desc} :  {result}"
+		if badmethode.length >= 1 then 
+			print "   Affected method :"
+			for methode in badmethode do 
+				print "    {methode.n_id.text}"
+			end
+		end
+	end
+end
 
 
 
@@ -232,7 +291,7 @@ redef class MClassDef
 		return set
 	end
 
-		# Collect mmethods introduced in 'self' with `visibility >= min_visibility`.
+	# Collect mmethods introduced in 'self' with `visibility >= min_visibility`.
 	fun collect_intro_mmethods: Set[MMethod] do
 		var res = new HashSet[MMethod]
 		for mproperty in collect_intro_mproperties do
@@ -242,7 +301,7 @@ redef class MClassDef
 	end
 
 	# Collect mattributes introduced in 'self' with `visibility >= min_visibility`.
-	fun collect_intro_mattributes(): Set[MAttribute] do
+	fun collect_intro_mattributes: Set[MAttribute] do
 		var res = new HashSet[MAttribute]
 		for mproperty in collect_intro_mproperties do
 			if mproperty isa MAttribute then res.add(mproperty)
