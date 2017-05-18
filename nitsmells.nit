@@ -26,42 +26,25 @@ import semantize
 
 import codesmells_metrics
 
-# The body of the specific work.
-# The main entry point is provided by `test_phase`,
-# This function is then automatically (unless errors where found).
-redef fun do_work(mainmodule, given_mmodules, modelbuilder)
-do
-	var model = modelbuilder.model
-	var mclasses = mainmodule.flatten_mclass_hierarchy
+# Create a tool context to handle options and paths
+var toolcontext = new ToolContext
+toolcontext.tooldescription = "Usage: nitsmells [OPTION]... <file.nit>...\n Computes code smells on Nit programs."
 
+# We do not add other options, so process them now!
+toolcontext.process_options(args)
 
-	#New array of classedef
-	var aclassdefs = new Array [AClassdef]
+# Get arguments
+var arguments = toolcontext.option_context.rest
 
-	#New array of classe
-	var mclasse = new Array [MClass]
+# We need a model to collect stufs
+var model = new Model
+# An a model builder to parse files
+var modelbuilder = new ModelBuilder(model, toolcontext)
 
-	# search all class and classdef and put they in the array
-	for m in mclasses do
-		mclasse.add(m)
-	end
+# Here we load an process all modules passed on the command line
+var mmodules = modelbuilder.parse_full(arguments)
+modelbuilder.run_phases
 
-	for nmodule in modelbuilder.nmodules do
-		for nclassdef in nmodule.n_classdefs do
-			aclassdefs.add(nclassdef)
-		end
-	end
+print "*** CODE SMELLS METRICS ***"
 
-
-	for aclassdef in aclassdefs do
-		# Execute antipattern detection
-		var m = aclassdef.mclassdef
-		if m != null then
-			print "Class : {m.name}"
-			m.mclassantipatterns.collect(aclassdef)
-			m.mclasscodesmell.collect(aclassdef)
-			m.mclassantipatterns.printAll
-			m.mclasscodesmell.printAll
-		end		
-	end
-end
+toolcontext.run_global_phases(mmodules)

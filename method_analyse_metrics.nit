@@ -22,11 +22,12 @@ import metrics_base
 import mclasses_metrics
 import semantize
 
+
 fun callvisiteMethodAnalyse(aclasse : AClassdef) : Array[MethodAnalyse] do
 	var visitors = new Array[MethodAnalyse]
 	for n_prop in aclasse.n_propdefs do
 		#Check if the property is a method definition
-		if n_prop isa AMethPropdef then 
+		if n_prop isa AMethPropdef then
 			if n_prop.n_methid isa AIdMethid then
 				#Call visitor to analyse the method
 				var visitor = new MethodAnalyse(n_prop)
@@ -41,7 +42,6 @@ end
 public class MethodAnalyse
 	super Visitor
 	var nclassdef: AMethPropdef
-
 	var total_call = new Counter[ASendExpr]
 	var lineDetail = new Counter[ASendExpr]
 	var total_call_self = new Counter[ASendExpr]
@@ -56,7 +56,6 @@ public class MethodAnalyse
 			if n.raw_arguments.length != 0 then
 				lineDetail.inc(n)
 			end
-
 			var callsite = n.callsite
 			if callsite != null then
 				self.total_call.inc(n)

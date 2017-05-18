@@ -23,22 +23,61 @@ import semantize
 
 import method_analyse_metrics
 
+
+redef class ToolContext
+	var codesmells_metrics_phase: Phase = new CodeSmellsMetricsPhase(self, null)
+end
+
+private class CodeSmellsMetricsPhase
+	super Phase
+
+	redef fun process_mainmodule(mainmodule, given_mmodules)
+	do
+		print "--- Code Smells Metrics ---"
+		var mclasses = mainmodule.flatten_mclass_hierarchy
+		var mclassdefs = new Array [MClassDef]
+ 		for mclass in mclasses do
+	 		for cd in mclass.mclassdefs do
+	 			mclassdefs.add(cd)
+	 		end
+ 		end
+ 		for m in mclassdefs do
+			# Execute antipattern detection
+			m.mclassantipatterns.collect(m , toolcontext.modelbuilder)
+			m.mclasscodesmell.collect(m , toolcontext.modelbuilder)
+			m.mclassantipatterns.printAll(m)
+			m.mclasscodesmell.printAll(m)
+		end
+	end
+end
+
+class Test
+	init do
+		print "test"
+	end
+end
+
 class BadConceptions
 	#Code smell list
 	var badConceptionElement = new Array[BadConception]
-
 	# Print all element conception
-	fun printAll do
+	fun printAll(classe : MClassDef) do
 		for cd in badConceptionElement do
-			cd.printResult
+			if cd.result == true then
+				print "Class: {classe.name}"
+				cd.printResult
+			end
 		end
 	end
 
 	#Collection
-	fun collect(classe : AClassdef)do 
-		for cd in badConceptionElement do
-			cd.collect(classe)
-		end 
+	fun collect(classe : MClassDef, modelbuilder : ModelBuilder)do
+		var aclassdef = modelbuilder.mclassdef2node(classe)
+		if aclassdef != null then
+			for cd in badConceptionElement do
+				cd.collect(aclassdef)
+			end
+		end
 	end
 end
 
@@ -52,7 +91,7 @@ end
 
 class CodeSmells
 	super BadConceptions
-	# create all codesmells	
+	# create all codesmells
 	init do
 		badConceptionElement.add(new LARGC)
 		badConceptionElement.add(new LONGPL)
@@ -61,19 +100,17 @@ class CodeSmells
 	end
 end
 
-
-
 class BadConception
 	#Bool Result
 	var result = false
 
 	#Name
-	fun name: String do 
+	fun name: String do
 		return ""
 	end
 
 	#Description
-	fun desc: String do 
+	fun desc: String do
 		return ""
 	end
 
@@ -100,16 +137,16 @@ end
 class LARGC
 	super CodeSmell
 
-	redef fun name do 
+	redef fun name do
 		return "LARGC"
 	end
-	redef fun desc do 
+	redef fun desc do
 		return "Large class"
 	end
 
 	redef fun collect(aclasse) do
 
-		#get class definition 
+		#get class definition
 		var classe = aclasse.mclassdef
 		var numberAttribut = classe.collect_intro_mattributes.length
 		#get the number of methods and subtract the get and set of attibutes (numberAtribut*2)
@@ -121,25 +158,25 @@ end
 class LONGPL
 	super CodeSmell
 
-	var badmethode = new Array[MMethodDef] 
+	var badmethods = new Array[MMethodDef]
 
-	redef fun name do 
+	redef fun name do
 		return "LONGPL"
 	end
-	redef fun desc do 
+	redef fun desc do
 		return "Long parameter list"
 	end
 
 	redef fun collect(aclasse) do
-		#get class definition 
+		#get class definition
 		var classe = aclasse.mclassdef
 		for meth in classe.mpropdefs do
 			#check if the property is a method definition
 			if meth isa MMethodDef then
 				#Check if method has a signature
 				if meth.msignature != null then
-					if meth.msignature.mparameters.length >= 4 then 
-						badmethode.add(meth)
+					if meth.msignature.mparameters.length >= 4 then
+						badmethods.add(meth)
 						result = true
 					end
 				end
@@ -150,10 +187,10 @@ class LONGPL
 
 	redef fun printResult do
 		print "{desc} :  {result}"
-		if badmethode.length >= 1 then 
+		if badmethods.length >= 1 then
 			print "   Affected method :"
-			for methode in badmethode do 
-				print "    {methode.name}"
+			for method in badmethods do
+				print "    {method.name}"
 			end
 		end
 	end
@@ -163,24 +200,22 @@ end
 class FEM
 	super CodeSmell
 
-	var badmethode = new Array[AIdMethid] 
+	var badmethods = new Array[AIdMethid]
 
-	redef fun name do 
+	redef fun name do
 		return "FEM"
 	end
-	redef fun desc do 
+	redef fun desc do
 		return "Feature envy"
 	end
 
 	redef fun collect(aclasse) do
-
 		#Call the visit class method
 		var visits = callvisiteMethodAnalyse(aclasse)
-
 		for visit in visits do
-			if visit.total_call.length < visit.total_call_self.length then
+			if visit.total_call_self.length >= (visit.total_call_self.length - visit.total_call_self.length) then
 				result = true
-				badmethode.add(visit.nclassdef.n_methid.as(AIdMethid))
+				badmethods.add(visit.nclassdef.n_methid.as(AIdMethid))
 			end
 		end
 
@@ -189,10 +224,10 @@ class FEM
 
 	redef fun printResult do
 		print "{desc} :  {result}"
-		if badmethode.length >= 1 then 
+		if badmethods.length >= 1 then
 			print "   Affected method :"
-			for methode in badmethode do 
-				print "    {methode.n_id.text}"
+			for method in badmethods do
+				print "    {method.n_id.text}"
 			end
 		end
 	end
@@ -201,12 +236,12 @@ end
 class LONGMETH
 	super CodeSmell
 
-	var badmethode = new Array[AIdMethid] 
+	var badmethods = new Array[AIdMethid]
 
-	redef fun name do 
+	redef fun name do
 		return "LONGMETH"
 	end
-	redef fun desc do 
+	redef fun desc do
 		return "Long method"
 	end
 
@@ -216,7 +251,7 @@ class LONGMETH
 		for visit in visits do
 			if visit.lineDetail.length > 30 then
 				result = true
-				badmethode.add(visit.nclassdef.n_methid.as(AIdMethid))
+				badmethods.add(visit.nclassdef.n_methid.as(AIdMethid))
 			end
 		end
 	end
@@ -224,10 +259,10 @@ class LONGMETH
 
 	redef fun printResult do
 		print "{desc} :  {result}"
-		if badmethode.length >= 1 then 
+		if badmethods.length >= 1 then
 			print "   Affected method :"
-			for methode in badmethode do 
-				print "    {methode.n_id.text}"
+			for method in badmethods do
+				print "    {method.n_id.text}"
 			end
 		end
 	end
