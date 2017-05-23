@@ -22,6 +22,8 @@ import mclasses_metrics
 import semantize
 
 import method_analyse_metrics
+import average_metrics
+import mclassdef_collect
 
 
 redef class ToolContext
@@ -51,12 +53,6 @@ private class CodeSmellsMetricsPhase
 	end
 end
 
-class Test
-	init do
-		print "test"
-	end
-end
-
 class BadConceptions
 	#Code smell list
 	var badConceptionElement = new Array[BadConception]
@@ -75,7 +71,7 @@ class BadConceptions
 		var aclassdef = modelbuilder.mclassdef2node(classe)
 		if aclassdef != null then
 			for cd in badConceptionElement do
-				cd.collect(aclassdef)
+				cd.collect(aclassdef, modelbuilder.model.private_view)
 			end
 		end
 	end
@@ -115,7 +111,7 @@ class BadConception
 	end
 
 	#Collection method
-	fun collect(classe : AClassdef)do end
+	fun collect(classe : AClassdef, model_view : ModelView)do end
 
 	#Show results in console
 	fun printResult do
@@ -144,14 +140,13 @@ class LARGC
 		return "Large class"
 	end
 
-	redef fun collect(aclasse) do
-
+	redef fun collect(aclasse, model_view) do
 		#get class definition
 		var classe = aclasse.mclassdef
 		var numberAttribut = classe.collect_intro_mattributes.length
 		#get the number of methods and subtract the get and set of attibutes (numberAtribut*2)
-		var numberMethode = classe.collect_intro_mattributes.length - (numberAttribut*2)
-		if numberMethode > 20 or numberAttribut > 20 then result = true
+		var numberMethode = classe.collect_intro_mmethods.length - (numberAttribut*2)
+		if numberMethode.to_f > model_view.getAverageMethodNumber or numberAttribut.to_f > model_view.getAverageAttributNumber then result = true
 	end
 end
 
@@ -167,7 +162,7 @@ class LONGPL
 		return "Long parameter list"
 	end
 
-	redef fun collect(aclasse) do
+	redef fun collect(aclasse, model_view) do
 		#get class definition
 		var classe = aclasse.mclassdef
 		for meth in classe.mpropdefs do
@@ -209,11 +204,11 @@ class FEM
 		return "Feature envy"
 	end
 
-	redef fun collect(aclasse) do
+	redef fun collect(aclasse, model_view) do
 		#Call the visit class method
 		var visits = callvisiteMethodAnalyse(aclasse)
 		for visit in visits do
-			if visit.total_call_self.length >= (visit.total_call_self.length - visit.total_call_self.length) then
+			if (visit.total_call_self.length - visit.total_call_self.length) >= visit.total_call_self.length then
 				result = true
 				badmethods.add(visit.nclassdef.n_methid.as(AIdMethid))
 			end
@@ -245,9 +240,8 @@ class LONGMETH
 		return "Long method"
 	end
 
-	redef fun collect(aclasse) do
+	redef fun collect(aclasse, model_view) do
 		var visits = callvisiteMethodAnalyse(aclasse)
-
 		for visit in visits do
 			if visit.lineDetail.length > 30 then
 				result = true
@@ -268,36 +262,46 @@ class LONGMETH
 	end
 end
 
-
-
 redef class MClassDef
 	var mclassantipatterns = new Antipatterns
 	var mclasscodesmell = new CodeSmells
+end
 
-	# Collect all mproperties introduced in 'self' with `visibility >= min_visibility`.
-	fun collect_intro_mproperties: Set[MProperty] do
-		var set = new HashSet[MProperty]
-			for mprop in self.intro_mproperties do
-				set.add(mprop)
+redef class ModelView
+
+	fun getAverageParameter : Float do
+		var counter = new Counter[MMethodDef]
+		for mclassdef in mclassdefs do
+			for method in mclassdef.mpropdefs do
+			#check if the property is a method definition
+				if method isa MMethodDef then
+					#Check if method has a signature
+					if method.msignature != null then
+						if method.msignature.mparameters.length != 0 then
+							counter[method] = method.msignature.mparameters.length
+						end
+					end
+				end
 			end
-		return set
+		end
+		return counter.avg + counter.std_dev
 	end
 
-	# Collect mmethods introduced in 'self' with `visibility >= min_visibility`.
-	fun collect_intro_mmethods: Set[MMethod] do
-		var res = new HashSet[MMethod]
-		for mproperty in collect_intro_mproperties do
-			if mproperty isa MMethod then res.add(mproperty)
+	fun getAverageAttributNumber : Float do
+		var counter = new Counter[MClassDef]
+		for mclassdef in mclassdefs do
+			var numberAttribut = mclassdef.collect_intro_mattributes.length
+			if numberAttribut != 0 then counter[mclassdef] = numberAttribut
 		end
-		return res
+		return counter.avg + counter.std_dev
 	end
 
-	# Collect mattributes introduced in 'self' with `visibility >= min_visibility`.
-	fun collect_intro_mattributes: Set[MAttribute] do
-		var res = new HashSet[MAttribute]
-		for mproperty in collect_intro_mproperties do
-			if mproperty isa MAttribute then res.add(mproperty)
+	fun getAverageMethodNumber : Float do
+		var counter = new Counter[MClassDef]
+		for mclassdef in mclassdefs do
+			var numberMethode = mclassdef.collect_intro_mmethods.length
+			if numberMethode != 0 then counter[mclassdef] = numberMethode
 		end
-		return res
+		return counter.avg + counter.std_dev
 	end
 end
