@@ -12,15 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# This module redef Mclassdef to add new collect methods.
+
 module mclassdef_collect
 
 # We usualy need specific phases
 # NOTE: `frontend` is sufficent in most case (it is often too much)
 import frontend
-
-import metrics_base
-import mclasses_metrics
-import semantize
 
 redef class MClassDef
 	# Collect all mproperties introduced in 'self' with `visibility >= min_visibility`.
