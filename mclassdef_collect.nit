@@ -47,4 +47,22 @@ redef class MClassDef
 		end
 		return res
 	end
+
+	# Collect all mproperties redefined in 'self' with `visibility >= min_visibility`.
+	fun collect_redef_mproperties: Set[MProperty] do
+		var set = new HashSet[MProperty]
+		for mpropdef in self.mpropdefs do
+			if mpropdef.mproperty.intro_mclassdef.mclass == self then continue
+				set.add(mpropdef.mproperty)
+			end
+		return set
+	end
+
+	# Collect mproperties introduced and redefined in 'self' with `visibility >= min_visibility`.
+	fun collect_local_mproperties: Set[MProperty] do
+		var set = new HashSet[MProperty]
+		set.add_all collect_intro_mproperties
+		set.add_all collect_redef_mproperties
+		return set
+	end
 end

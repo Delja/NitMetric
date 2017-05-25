@@ -43,6 +43,7 @@ private class CodeSmellsMetricsPhase
 	 			mclassdefs.add(cd)
 	 		end
  		end
+
  		var collect = new Counter[MClassDef]
  		for m in mclassdefs do
 			# Execute antipattern detection
@@ -50,14 +51,17 @@ private class CodeSmellsMetricsPhase
 			collect.add_all(m.mclasscodesmell.collect(m , toolcontext.modelbuilder))
 		end
 
+		toolcontext.modelbuilder.model.private_view.collect_all_average(toolcontext.modelbuilder)
+
 		#Return top 10 list and print
 		var top_mclassdefs = new Array [MClassDef]
 		top_mclassdefs = collect.get_element(10)
 
 		for mclassdef in top_mclassdefs do
-			#mclassdef.mclasscodesmell.print_all(mclassdef)
+			mclassdef.mclasscodesmell.print_all(mclassdef)
 		end
-		toolcontext.modelbuilder.model.private_view.getAverageLineNumber(toolcontext.modelbuilder)
+
+		print "{toolcontext.modelbuilder.model.private_view.average_number_of_lines}"
 	end
 end
 
@@ -160,7 +164,7 @@ class LargeClass
 		var numberAttribut = mclassdef.collect_intro_mattributes.length
 		#get the number of methods and subtract the get and set of attibutes (numberAtribut*2)
 		var numberMethode = mclassdef.collect_intro_mmethods.length - (numberAttribut*2)
-		if numberMethode.to_f > model_view.getAverageMethodNumber or numberAttribut.to_f > model_view.getAverageAttributNumber then result = true
+		if numberMethode.to_f > model_view.average_number_of_method or numberAttribut.to_f > model_view.average_number_of_attribute then result = true
 	end
 end
 
@@ -257,7 +261,7 @@ class LongMethod
 	redef fun collect(n_classdef, model_view) do
 		var visits = call_analyze_methods(n_classdef)
 		for visit in visits do
-			if visit.lineDetail.length > 30 then
+			if visit.lineDetail.length > model_view.average_number_of_lines then
 				result = true
 				bad_methods.add(visit.nclassdef.n_methid.as(AIdMethid))
 			end
@@ -285,8 +289,21 @@ end
 
 
 redef class ModelView
-	
-	fun getAverageParameter : Float do
+
+	var average_number_of_lines = 0
+	var average_number_of_parameter = 0.0
+	var average_number_of_method = 0.0
+	var average_number_of_attribute = 0.0
+
+	fun collect_all_average(modelbuilder : ModelBuilder) do
+		self.getAverageParameter
+		self.getAverageMethodNumber
+		self.getAverageAttributNumber
+		self.getAverageLineNumber(modelbuilder)
+	end
+
+
+	fun getAverageParameter do
 		var counter = new Counter[MMethodDef]
 		for mclassdef in mclassdefs do
 			for method in mclassdef.mpropdefs do
@@ -301,43 +318,42 @@ redef class ModelView
 				end
 			end
 		end
-		return counter.avg + counter.std_dev
+		self.average_number_of_parameter= counter.avg + counter.std_dev
 	end
 
-	fun getAverageAttributNumber : Float do
+	fun getAverageAttributNumber do
 		var counter = new Counter[MClassDef]
 		for mclassdef in mclassdefs do
 			var numberAttribut = mclassdef.collect_intro_mattributes.length
 			if numberAttribut != 0 then counter[mclassdef] = numberAttribut
 		end
-		return counter.avg + counter.std_dev
+		self.average_number_of_attribute = counter.avg + counter.std_dev
 	end
 
-	fun getAverageMethodNumber : Float do
+	fun getAverageMethodNumber do
 		var counter = new Counter[MClassDef]
 		for mclassdef in mclassdefs do
 			var numberMethode = mclassdef.collect_intro_mmethods.length
 			if numberMethode != 0 then counter[mclassdef] = numberMethode
 		end
-		return counter.avg + counter.std_dev
+		self.average_number_of_method = counter.avg + counter.std_dev
 	end
 
-	fun getAverageLineNumber(modelbuilder : ModelBuilder) : Int do
+	fun getAverageLineNumber(modelbuilder : ModelBuilder) do
 		var methods_analyse_metrics = new Counter[MClassDef]
-		var result = 0
 		for mclassdef in mclassdefs do
+			var result = 0
 			var n_classdef = modelbuilder.mclassdef2node(mclassdef)
 			if n_classdef != null then
 				for method_analyse in call_analyze_methods(n_classdef) do
 					result += method_analyse.lineDetail.length
 				end
-				if mclassdef.collect_intro_mmethods.length != 0 then
-					methods_analyse_metrics[mclassdef] = (result/mclassdef.collect_intro_mmethods.length).to_i
+				if mclassdef.collect_local_mproperties.length != 0 then
+					methods_analyse_metrics[mclassdef] = (result/mclassdef.collect_local_mproperties.length).to_i
 				end
 			end
 		end
-		print "{methods_analyse_metrics.avg + methods_analyse_metrics.std_dev}"
-		return result
+		self.average_number_of_lines = (methods_analyse_metrics.avg + methods_analyse_metrics.std_dev).to_i
 	end
 end
 

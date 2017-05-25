@@ -51,7 +51,7 @@ public class MethodAnalyseMetrics
 	redef fun visit(n)
 	do
 		n.visit_all(self)
-		
+
 		if n isa ASendExpr then
 			if n.first_location != null then
 				lineDetail.inc(n.first_location.line_start)
