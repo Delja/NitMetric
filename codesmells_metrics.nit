@@ -57,12 +57,15 @@ class CodeSmellsMetricsPhase
 	 			mclassdefs.add(cd)
 	 		end
  		end
+
+
  		var collect = new Counter[MClassDef]
  		for mclassdef in mclassdefs do
 			# Execute antipattern detection
 			#m.mclassantipatterns.collect(m , toolcontext.modelbuilder)
 			collect.add_all(mclassdef.mclasscodesmell.collect(self,mclassdef , model_builder))
 		end
+
 		#Return top 10 list and print
 		var top_mclassdefs = new Array [MClassDef]
 		top_mclassdefs = collect.get_element(10)
@@ -81,9 +84,8 @@ class BadConceptions
 		print "-------------------"
 		print "Class: {clazz.name}"
 		for cd in bad_conception_element do
-			if cd.result == true then
-				cd.print_result
-			end
+			if cd.result != true then continue
+			cd.print_result
 		end
 	end
 
@@ -97,9 +99,8 @@ class BadConceptions
 			end
 		end
 		for cd in bad_conception_element do
-			if cd.result == true then
-				counter.inc(clazz)
-			end
+			if cd.result != true then continue
+			counter.inc(clazz)
 		end
 		return counter
 	end
@@ -193,15 +194,12 @@ class LongParameterList
 		var mclassdef = n_classdef.mclassdef
 		for meth in mclassdef.mpropdefs do
 			#check if the property is a method definition
-			if meth isa MMethodDef then
+			if not meth isa MMethodDef then continue
 				#Check if method has a signature
-				if meth.msignature != null then
-					if meth.msignature.mparameters.length >= 4 then
-						bad_methods.add(meth)
-						result = true
-					end
-				end
-			end
+			if not meth.msignature != null then continue
+			if not meth.msignature.mparameters.length >= 4 then continue
+			bad_methods.add(meth)
+			result = true
 		end
 	end
 
@@ -234,10 +232,9 @@ class FeatureEnvy
 		#Call the visit class method
 		var visits = call_analyze_methods(n_classdef)
 		for visit in visits do
-			if (visit.total_call_self.length - visit.total_call_self.length) > visit.total_call_self.length then
-				result = true
-				bad_methods.add(visit.nclassdef.n_methid.as(AIdMethid))
-			end
+			if not (visit.total_call_self.length - visit.total_call_self.length) > visit.total_call_self.length then continue
+			result = true
+			bad_methods.add(visit.nclassdef.n_methid.as(AIdMethid))
 		end
 
 	end
@@ -269,11 +266,10 @@ class LongMethod
 	redef fun collect(phase, n_classdef, model_view) do
 		var visits = call_analyze_methods(n_classdef)
 		for visit in visits do
-			if visit.lineDetail.length > phase.average_number_of_lines.to_i then
-				result = true
-				visit.nclassdef.n_methid.as(AIdMethid).linenumber = visit.lineDetail.length
-				bad_methods.add(visit.nclassdef.n_methid.as(AIdMethid))
-			end
+			if not visit.lineDetail.length > phase.average_number_of_lines.to_i then continue
+			result = true
+			visit.nclassdef.n_methid.as(AIdMethid).linenumber = visit.lineDetail.length
+			bad_methods.add(visit.nclassdef.n_methid.as(AIdMethid))
 		end
 	end
 
@@ -306,14 +302,11 @@ redef class ModelView
 		for mclassdef in mclassdefs do
 			for method in mclassdef.mpropdefs do
 			#check if the property is a method definition
-				if method isa MMethodDef then
-					#Check if method has a signature
-					if method.msignature != null then
-						if method.msignature.mparameters.length != 0 then
-							counter[method] = method.msignature.mparameters.length
-						end
-					end
-				end
+				if not method isa MMethodDef then continue
+				#Check if method has a signature
+				if not method.msignature != null then continue
+				if not method.msignature.mparameters.length != 0 then continue
+				counter[method] = method.msignature.mparameters.length
 			end
 		end
 		return counter.avg + counter.std_dev
@@ -342,14 +335,12 @@ redef class ModelView
 		for mclassdef in mclassdefs do
 			var result = 0
 			var n_classdef = modelbuilder.mclassdef2node(mclassdef)
-			if n_classdef != null then
-				for method_analyse in call_analyze_methods(n_classdef) do
-					result += method_analyse.lineDetail.length
-				end
-				if mclassdef.collect_local_mproperties.length != 0 then
-					methods_analyse_metrics[mclassdef] = (result/mclassdef.collect_local_mproperties.length).to_i
-				end
+			if not n_classdef != null then continue
+			for method_analyse in call_analyze_methods(n_classdef) do
+				result += method_analyse.lineDetail.length
 			end
+			if not mclassdef.collect_local_mproperties.length != 0 then continue
+			methods_analyse_metrics[mclassdef] = (result/mclassdef.collect_local_mproperties.length).to_i
 		end
 		return methods_analyse_metrics.avg + methods_analyse_metrics.std_dev
 	end
