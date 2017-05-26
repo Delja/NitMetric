@@ -30,29 +30,39 @@ redef class ToolContext
 	var codesmells_metrics_phase: Phase = new CodeSmellsMetricsPhase(self, null)
 end
 
-private class CodeSmellsMetricsPhase
+class CodeSmellsMetricsPhase
 	super Phase
+
+	var average_number_of_lines = 0.0
+	var average_number_of_parameter = 0.0
+	var average_number_of_method = 0.0
+	var average_number_of_attribute = 0.0
+
 
 	redef fun process_mainmodule(mainmodule, given_mmodules)
 	do
 		print "--- Code Smells Metrics ---"
 		var mclazzs = mainmodule.flatten_mclass_hierarchy
+		var model_builder = toolcontext.modelbuilder
+ 		var model_view = model_builder.model.private_view
+
+ 		average_number_of_lines = model_view.get_avg_LineNumber(model_builder)
+		average_number_of_parameter = model_view.get_avg_parameter
+		average_number_of_method = model_view.get_avg_method
+		average_number_of_attribute = model_view.get_avg_attribut
+
 		var mclassdefs = new Array [MClassDef]
  		for mclass in mclazzs do
 	 		for cd in mclass.mclassdefs do
 	 			mclassdefs.add(cd)
 	 		end
  		end
-
  		var collect = new Counter[MClassDef]
- 		for m in mclassdefs do
+ 		for mclassdef in mclassdefs do
 			# Execute antipattern detection
 			#m.mclassantipatterns.collect(m , toolcontext.modelbuilder)
-			collect.add_all(m.mclasscodesmell.collect(m , toolcontext.modelbuilder))
+			collect.add_all(mclassdef.mclasscodesmell.collect(self,mclassdef , model_builder))
 		end
-
-		toolcontext.modelbuilder.model.private_view.collect_all_average(toolcontext.modelbuilder)
-
 		#Return top 10 list and print
 		var top_mclassdefs = new Array [MClassDef]
 		top_mclassdefs = collect.get_element(10)
@@ -60,8 +70,6 @@ private class CodeSmellsMetricsPhase
 		for mclassdef in top_mclassdefs do
 			mclassdef.mclasscodesmell.print_all(mclassdef)
 		end
-
-		print "{toolcontext.modelbuilder.model.private_view.average_number_of_lines}"
 	end
 end
 
@@ -80,12 +88,12 @@ class BadConceptions
 	end
 
 	#Collection
-	fun collect(clazz : MClassDef, modelbuilder : ModelBuilder) : Counter[MClassDef] do
+	fun collect(phase : CodeSmellsMetricsPhase ,clazz : MClassDef, modelbuilder : ModelBuilder) : Counter[MClassDef] do
 		var n_classdef = modelbuilder.mclassdef2node(clazz)
 		var counter = new Counter[MClassDef]
 		if n_classdef != null then
 			for cd in bad_conception_element do
-				cd.collect(n_classdef, modelbuilder.model.private_view)
+				cd.collect(phase , n_classdef, modelbuilder.model.private_view)
 			end
 		end
 		for cd in bad_conception_element do
@@ -129,7 +137,7 @@ class BadConception
 	end
 
 	#Collection method
-	fun collect(n_classdef : AClassdef, model_view : ModelView)do end
+	fun collect(phase : CodeSmellsMetricsPhase , n_classdef : AClassdef, model_view : ModelView)do end
 
 	#Show results in console
 	fun print_result do
@@ -158,13 +166,13 @@ class LargeClass
 		return "Large class"
 	end
 
-	redef fun collect(n_classdef, model_view) do
+	redef fun collect(phase , n_classdef, model_view) do
 		#get class definition
 		var mclassdef = n_classdef.mclassdef
 		var numberAttribut = mclassdef.collect_intro_mattributes.length
 		#get the number of methods and subtract the get and set of attibutes (numberAtribut*2)
 		var numberMethode = mclassdef.collect_intro_mmethods.length - (numberAttribut*2)
-		if numberMethode.to_f > model_view.average_number_of_method or numberAttribut.to_f > model_view.average_number_of_attribute then result = true
+		if numberMethode.to_f > phase.average_number_of_method or numberAttribut.to_f > phase.average_number_of_attribute then result = true
 	end
 end
 
@@ -180,7 +188,7 @@ class LongParameterList
 		return "Long parameter list"
 	end
 
-	redef fun collect(n_classdef, model_view) do
+	redef fun collect(phase , n_classdef, model_view) do
 		#get class definition
 		var mclassdef = n_classdef.mclassdef
 		for meth in mclassdef.mpropdefs do
@@ -222,7 +230,7 @@ class FeatureEnvy
 		return "Feature envy"
 	end
 
-	redef fun collect(n_classdef, model_view) do
+	redef fun collect(phase, n_classdef, model_view) do
 		#Call the visit class method
 		var visits = call_analyze_methods(n_classdef)
 		for visit in visits do
@@ -258,11 +266,12 @@ class LongMethod
 		return "Long method"
 	end
 
-	redef fun collect(n_classdef, model_view) do
+	redef fun collect(phase, n_classdef, model_view) do
 		var visits = call_analyze_methods(n_classdef)
 		for visit in visits do
-			if visit.lineDetail.length > model_view.average_number_of_lines then
+			if visit.lineDetail.length > phase.average_number_of_lines.to_i then
 				result = true
+				visit.nclassdef.n_methid.as(AIdMethid).linenumber = visit.lineDetail.length
 				bad_methods.add(visit.nclassdef.n_methid.as(AIdMethid))
 			end
 		end
@@ -274,12 +283,15 @@ class LongMethod
 		if bad_methods.length >= 1 then
 			print "Affected method:"
 			for method in bad_methods do
-				print "{method.n_id.text}"
+				print "{method.n_id.text} {method.linenumber}"
 			end
 		end
 	end
 end
 
+redef class AIdMethid
+	var linenumber = 0
+end
 
 
 redef class MClassDef
@@ -289,21 +301,7 @@ end
 
 
 redef class ModelView
-
-	var average_number_of_lines = 0
-	var average_number_of_parameter = 0.0
-	var average_number_of_method = 0.0
-	var average_number_of_attribute = 0.0
-
-	fun collect_all_average(modelbuilder : ModelBuilder) do
-		self.getAverageParameter
-		self.getAverageMethodNumber
-		self.getAverageAttributNumber
-		self.getAverageLineNumber(modelbuilder)
-	end
-
-
-	fun getAverageParameter do
+	fun get_avg_parameter : Float do
 		var counter = new Counter[MMethodDef]
 		for mclassdef in mclassdefs do
 			for method in mclassdef.mpropdefs do
@@ -318,28 +316,28 @@ redef class ModelView
 				end
 			end
 		end
-		self.average_number_of_parameter= counter.avg + counter.std_dev
+		return counter.avg + counter.std_dev
 	end
 
-	fun getAverageAttributNumber do
+	fun get_avg_attribut : Float do
 		var counter = new Counter[MClassDef]
 		for mclassdef in mclassdefs do
 			var numberAttribut = mclassdef.collect_intro_mattributes.length
 			if numberAttribut != 0 then counter[mclassdef] = numberAttribut
 		end
-		self.average_number_of_attribute = counter.avg + counter.std_dev
+		return counter.avg + counter.std_dev
 	end
 
-	fun getAverageMethodNumber do
+	fun get_avg_method : Float do
 		var counter = new Counter[MClassDef]
 		for mclassdef in mclassdefs do
 			var numberMethode = mclassdef.collect_intro_mmethods.length
 			if numberMethode != 0 then counter[mclassdef] = numberMethode
 		end
-		self.average_number_of_method = counter.avg + counter.std_dev
+		return counter.avg + counter.std_dev
 	end
 
-	fun getAverageLineNumber(modelbuilder : ModelBuilder) do
+	fun get_avg_LineNumber(modelbuilder : ModelBuilder) : Float do
 		var methods_analyse_metrics = new Counter[MClassDef]
 		for mclassdef in mclassdefs do
 			var result = 0
@@ -353,7 +351,7 @@ redef class ModelView
 				end
 			end
 		end
-		self.average_number_of_lines = (methods_analyse_metrics.avg + methods_analyse_metrics.std_dev).to_i
+		return methods_analyse_metrics.avg + methods_analyse_metrics.std_dev
 	end
 end
 
