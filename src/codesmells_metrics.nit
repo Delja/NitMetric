@@ -41,7 +41,7 @@ class CodeSmellsMetricsPhase
 
 	redef fun process_mainmodule(mainmodule, given_mmodules)
 	do
-		print "--- Code Smells Metrics ---"
+		print toolcontext.format_h1("--- Code Smells Metrics ---")
 		var mclazzs = mainmodule.flatten_mclass_hierarchy
 		var model_builder = toolcontext.modelbuilder
  		var model_view = model_builder.model.private_view
@@ -63,7 +63,7 @@ class CodeSmellsMetricsPhase
  		for mclassdef in mclassdefs do
 			# Execute antipattern detection
 			#m.mclassantipatterns.collect(m , toolcontext.modelbuilder)
-			collect.add_all(mclassdef.mclasscodesmell.collect(self,mclassdef , model_builder))
+			collect.add_all(mclassdef.mclasscodesmell.collect(self,mclassdef))
 		end
 
 		#Return top 10 list and print
@@ -73,29 +73,43 @@ class CodeSmellsMetricsPhase
 		for mclassdef in top_mclassdefs do
 			mclassdef.mclasscodesmell.print_all(mclassdef)
 		end
+
+
+		#var a = [1, 3, 2]
+		#for q in a.sort_fa do q.res = q.a <=> q.b
+		#assert a ==  [1, 2, 3]
 	end
 end
 
 class BadConceptions
+	
+	var toolcontext : nullable ToolContext
+
 	#Code smell list
 	var bad_conception_element = new Array[BadConception]
 	# Print all element conception
 	fun print_all(clazz : MClassDef) do
 		print "-------------------"
-		print "Class: {clazz.name}"
+		print toolcontext.format_h1("Class: {clazz.name}")
 		for cd in bad_conception_element do
 			if cd.result != true then continue
-			cd.print_result
+			cd.print_result		
 		end
 	end
 
 	#Collection
-	fun collect(phase : CodeSmellsMetricsPhase ,clazz : MClassDef, modelbuilder : ModelBuilder) : Counter[MClassDef] do
+	fun collect(phase : CodeSmellsMetricsPhase ,clazz : MClassDef) : Counter[MClassDef] do
+		toolcontext = phase.toolcontext
+		var modelbuilder = phase.toolcontext.modelbuilder
+		for badconception in bad_conception_element do
+			badconception.phase = phase
+		end
+
 		var n_classdef = modelbuilder.mclassdef2node(clazz)
 		var counter = new Counter[MClassDef]
 		if n_classdef != null then
 			for cd in bad_conception_element do
-				cd.collect(phase , n_classdef, modelbuilder.model.private_view)
+				cd.collect(n_classdef, modelbuilder.model.private_view)
 			end
 		end
 		for cd in bad_conception_element do
@@ -109,7 +123,7 @@ end
 class Antipatterns
 	super BadConceptions
 	init do
-		#bad_conception_element.add(new GOC)
+		bad_conception_element.add(new GodOfClass)
 	end
 end
 
@@ -127,6 +141,8 @@ class BadConception
 	#Bool Result
 	var result = false
 
+	var phase : nullable CodeSmellsMetricsPhase
+
 	#Name
 	fun name: String do
 		return ""
@@ -138,7 +154,7 @@ class BadConception
 	end
 
 	#Collection method
-	fun collect(phase : CodeSmellsMetricsPhase , n_classdef : AClassdef, model_view : ModelView)do end
+	fun collect(n_classdef : AClassdef, model_view : ModelView)do end
 
 	#Show results in console
 	fun print_result do
@@ -160,6 +176,8 @@ end
 class LargeClass
 	super CodeSmell
 
+	var bad_class : nullable MClassDef
+
 	redef fun name do
 		return "LARGC"
 	end
@@ -167,13 +185,20 @@ class LargeClass
 		return "Large class"
 	end
 
-	redef fun collect(phase , n_classdef, model_view) do
+	redef fun collect (n_classdef, model_view) do
 		#get class definition
 		var mclassdef = n_classdef.mclassdef
 		var numberAttribut = mclassdef.collect_intro_mattributes.length
 		#get the number of methods and subtract the get and set of attibutes (numberAtribut*2)
 		var numberMethode = mclassdef.collect_intro_mmethods.length - (numberAttribut*2)
-		if numberMethode.to_f > phase.average_number_of_method or numberAttribut.to_f > phase.average_number_of_attribute then result = true
+		if numberMethode.to_f > phase.average_number_of_method and numberAttribut.to_f > phase.average_number_of_attribute then 
+			result = true
+			bad_class = mclassdef
+		end
+	end
+
+	redef fun print_result do
+		print phase.toolcontext.format_h2("{desc}: {bad_class.collect_intro_mattributes.length} attributes and {bad_class.collect_intro_mmethods.length} methods ({phase.average_number_of_attribute}A {phase.average_number_of_method}M Average)") 
 	end
 end
 
@@ -189,7 +214,7 @@ class LongParameterList
 		return "Long parameter list"
 	end
 
-	redef fun collect(phase , n_classdef, model_view) do
+	redef fun collect(n_classdef, model_view) do
 		#get class definition
 		var mclassdef = n_classdef.mclassdef
 		for meth in mclassdef.mpropdefs do
@@ -207,9 +232,9 @@ class LongParameterList
 	redef fun print_result do
 		print "{desc} :  {result}"
 		if bad_methods.length >= 1 then
-			print "Affected method:"
+			print "	Affected method:"
 			for method in bad_methods do
-				print "{method.name}"
+				print "		-{method.name}  has {method.msignature.mparameters.length} parameters"
 			end
 		end
 	end
@@ -228,11 +253,11 @@ class FeatureEnvy
 		return "Feature envy"
 	end
 
-	redef fun collect(phase, n_classdef, model_view) do
+	redef fun collect(n_classdef, model_view) do
 		#Call the visit class method
 		var visits = call_analyze_methods(n_classdef)
 		for visit in visits do
-			if not (visit.total_call_self.length - visit.total_call_self.length) > visit.total_call_self.length then continue
+			if not (visit.total_call.length - visit.total_call_self.length) < visit.total_call_self.length then continue
 			result = true
 			bad_methods.add(visit.nclassdef.n_methid.as(AIdMethid))
 		end
@@ -243,9 +268,9 @@ class FeatureEnvy
 	redef fun print_result do
 		print "{desc} :  {result}"
 		if bad_methods.length >= 1 then
-			print "Affected method:"
+			print "	Affected method:"
 			for method in bad_methods do
-				print "{method.n_id.text}"
+				print "		-{method.n_id.text}"
 			end
 		end
 	end
@@ -263,7 +288,7 @@ class LongMethod
 		return "Long method"
 	end
 
-	redef fun collect(phase, n_classdef, model_view) do
+	redef fun collect(n_classdef, model_view) do
 		var visits = call_analyze_methods(n_classdef)
 		for visit in visits do
 			if not visit.lineDetail.length > phase.average_number_of_lines.to_i then continue
@@ -275,14 +300,36 @@ class LongMethod
 
 
 	redef fun print_result do
-		print "{desc}:  {result}"
+		print "{desc}:  Average {phase.average_number_of_lines.to_i} lines"
 		if bad_methods.length >= 1 then
-			print "Affected method:"
+			print "	Affected method:"
 			for method in bad_methods do
-				print "{method.n_id.text} {method.linenumber}"
+				print "		-{method.n_id.text} has {method.linenumber} lines"
 			end
 		end
 	end
+end
+
+class GodOfClass
+	super Antipattern
+
+	redef fun name do
+		return "GodOfClass"
+	end
+	redef fun desc do
+		return "God of class"
+	end
+
+	redef fun collect(n_classdef, model_view) do
+		
+	end
+
+
+	redef fun print_result do
+		
+	end
+
+
 end
 
 redef class AIdMethid
@@ -334,14 +381,18 @@ redef class ModelView
 		var methods_analyse_metrics = new Counter[MClassDef]
 		for mclassdef in mclassdefs do
 			var result = 0
+			var count = 0
 			var n_classdef = modelbuilder.mclassdef2node(mclassdef)
 			if not n_classdef != null then continue
 			for method_analyse in call_analyze_methods(n_classdef) do
 				result += method_analyse.lineDetail.length
+				if method_analyse.lineDetail.length == 0 then continue
+				count += 1
 			end
 			if not mclassdef.collect_local_mproperties.length != 0 then continue
-			methods_analyse_metrics[mclassdef] = (result/mclassdef.collect_local_mproperties.length).to_i
-		end
+			if count == 0 then continue
+			methods_analyse_metrics[mclassdef] = (result/count).to_i
+		end 
 		return methods_analyse_metrics.avg + methods_analyse_metrics.std_dev
 	end
 end
