@@ -1,18 +1,21 @@
 Test ModelBuilder
 *** CODE SMELLS METRICS ***
 --- Code Smells Metrics ---
--------------------
-Class: Character
-Feature envy :  true
-	Affected method:
-		-quit
+-----------
+test_prog$Character
+Large class: 6 attributes and 6 methods (5.414A 4.077M Average)
+Feature envy:
+	Affected method(s):
+		-total_strengh 4/9
+		-total_endurance 4/9
+		-total_intelligence 4/9
 Long method:  Average 1 lines
-	Affected method:
+	Affected method(s):
 		-total_strengh has 2 lines
 		-total_endurance has 2 lines
 		-total_intelligence has 2 lines
--------------------
-Class: Character
-Feature envy :  true
-	Affected method:
-		-hit_points
+-----------
+test_prog::combat$Dwarf
+Feature envy:
+	Affected method(s):
+		-dps 1/3

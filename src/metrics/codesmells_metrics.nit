@@ -26,17 +26,15 @@ import mclassdef_collect
 
 
 redef class ToolContext
-	var codesmells_metrics_phase: Phase = new CodeSmellsMetricsPhase(self, null)
+	var codesmells_metrics_phase = new CodeSmellsMetricsPhase(self, null)
 end
 
 class CodeSmellsMetricsPhase
 	super Phase
-
 	var average_number_of_lines = 0.0
 	var average_number_of_parameter = 0.0
 	var average_number_of_method = 0.0
 	var average_number_of_attribute = 0.0
-
 
 	redef fun process_mainmodule(mainmodule, given_mmodules) do
 		print toolcontext.format_h1("--- Code Smells Metrics ---")
@@ -48,14 +46,13 @@ class CodeSmellsMetricsPhase
 		for mclass in mainmodule.flatten_mclass_hierarchy do
 			mclass_codesmell.collect(mclass.mclassdefs,self)
 		end
-		mclass_codesmell.print_all
+		mclass_codesmell.print_top(10)
 	end
 
 	fun set_all_average_metrics do
 		var model_builder = toolcontext.modelbuilder
 		var model_view = model_builder.model.private_view
-
-		self.average_number_of_lines = model_view.get_avg_LineNumber(model_builder)
+		self.average_number_of_lines = model_view.get_avg_linenumber(model_builder)
 		self.average_number_of_parameter = model_view.get_avg_parameter
 		self.average_number_of_method = model_view.get_avg_method(model_builder)
 		self.average_number_of_attribute = model_view.get_avg_attribut(model_builder)
@@ -64,18 +61,21 @@ end
 
 class BadConceptions
 	# Code smell list
-	var bad_conception_element = new Array[BadConceptionClass]
+	var bad_conception_elements = new Array[BadConceptionClass]
 
 	# Print all element conception
 	fun print_all do
-		for bad_conception in bad_conception_element do
+		for bad_conception in bad_conception_elements do
 			bad_conception.print_all
 		end
 	end
 
 	# Print number of top element conception
 	fun print_top(number: Int) do
-
+		var test = self.get_numbers_of_elements(number)
+		for bad_conception in test do
+			bad_conception.print_all
+		end
 	end
 
 	# Collection
@@ -83,8 +83,28 @@ class BadConceptions
 		for mclassdef in mclassdefs do
 			var bad_conception_class = new BadConceptionClass(mclassdef,phase)
 			bad_conception_class.collect
-			bad_conception_element.add(bad_conception_class)
+			bad_conception_elements.add(bad_conception_class)
 		end
+	end
+
+	fun sort: Array[BadConceptionClass]
+	do
+		var res = bad_conception_elements
+		var sorter = new BadConceptionComparator
+		sorter.sort(res)
+		return res
+	end
+
+	fun get_numbers_of_elements(number : Int) : Array[BadConceptionClass]do
+		var return_values = new Array[BadConceptionClass]
+		var list = self.sort
+		var min = number
+		if list.length <= number*2 then min = list.length
+		for i in [0..min[ do
+			var t = list[list.length-i-1]
+			return_values.add(t)
+		end
+		return return_values
 	end
 end
 
@@ -137,8 +157,6 @@ class BadConception
 	fun print_result is abstract
 end
 
-
-
 class LargeClass
 	super BadConception
 
@@ -146,21 +164,15 @@ class LargeClass
 
 	var number_method = 0
 
-	redef fun name do
-		return "LARGC"
-	end
-	redef fun desc do
-		return "Large class"
-	end
+	redef fun name do return "LARGC"
+
+	redef fun desc do return "Large class"
 
 	redef fun collect(mclassdef, model_builder): Bool do
 		number_attribut = mclassdef.collect_intro_and_redef_mattributes(model_builder.model.private_view).length
 		# get the number of methods and subtract the get and set of attibutes (numberAtribut*2)
 		number_method = mclassdef.collect_intro_and_redef_methods(model_builder.model.private_view).length - (number_attribut*2)
-		if number_method.to_f > phase.average_number_of_method and number_attribut.to_f > phase.average_number_of_attribute then
-			return true
-		end
-		return false
+		return number_method.to_f > phase.average_number_of_method and number_attribut.to_f > phase.average_number_of_attribute
 	end
 
 	redef fun print_result do
@@ -173,15 +185,11 @@ class LongParameterList
 
 	var bad_methods = new Array[MMethodDef]
 
-	redef fun name do
-		return "LONGPL"
-	end
-	redef fun desc do
-		return "Long parameter list"
-	end
+	redef fun name do return "LONGPL"
+
+	redef fun desc do return "Long parameter list"
 
 	redef fun collect(mclassdef, model_builder): Bool do
-		var result = false
 		for meth in mclassdef.mpropdefs do
 			# check if the property is a method definition
 			if not meth isa MMethodDef then continue
@@ -189,9 +197,8 @@ class LongParameterList
 			if meth.msignature == null then continue
 			if meth.msignature.mparameters.length <= 4 then continue
 			bad_methods.add(meth)
-			result = true
 		end
-		return result
+		return bad_methods.not_empty
 	end
 
 
@@ -206,30 +213,23 @@ class LongParameterList
 	end
 end
 
-
 class FeatureEnvy
 	super BadConception
 
 	var bad_methods = new Array[MMethodDef]
 
-	redef fun name do
-		return "FEM"
-	end
-	redef fun desc do
-		return "Feature envy"
-	end
+	redef fun name do return "FEM"
+
+	redef fun desc do return "Feature envy"
 
 	redef fun collect(mclassdef, model_builder): Bool do
-		var result = false
 		var mmethoddefs = call_analyze_methods(mclassdef,model_builder)
 		for mmethoddef in mmethoddefs do
 			if mmethoddef.total_extern_call <= mmethoddef.total_self_call then continue
-			result = true
 			bad_methods.add(mmethoddef)
 		end
-		return result
+		return bad_methods.not_empty
 	end
-
 
 	redef fun print_result do
 		print "{desc}:"
@@ -247,24 +247,18 @@ class LongMethod
 
 	var bad_methods = new Array[MMethodDef]
 
-	redef fun name do
-		return "LONGMETH"
-	end
-	redef fun desc do
-		return "Long method"
-	end
+	redef fun name do return "LONGMETH"
+
+	redef fun desc do return "Long method"
 
 	redef fun collect(mclassdef, model_builder): Bool do
-		var result = false
 		var mmethoddefs = call_analyze_methods(mclassdef,model_builder)
 		for mmethoddef in mmethoddefs do
 			if mmethoddef.line_number <= phase.average_number_of_lines.to_i then continue
-			result = true
 			bad_methods.add(mmethoddef)
 		end
-		return result
+		return bad_methods.not_empty
 	end
-
 
 	redef fun print_result do
 		print "{desc}:  Average {phase.average_number_of_lines.to_i} lines"
@@ -312,7 +306,7 @@ redef class ModelView
 		return counter.avg + counter.std_dev
 	end
 
-	fun get_avg_LineNumber(model_builder: ModelBuilder): Float do
+	fun get_avg_linenumber(model_builder: ModelBuilder): Float do
 		var methods_analyse_metrics = new Counter[MClassDef]
 		for mclassdef in mclassdefs do
 			var result = 0
@@ -328,4 +322,10 @@ redef class ModelView
 		end
 		return methods_analyse_metrics.avg + methods_analyse_metrics.std_dev
 	end
+end
+
+class BadConceptionComparator
+	super Comparator
+	redef type COMPARED: BadConceptionClass
+	redef fun compare(a,b) do return a.array_badconception.length <=> b.array_badconception.length
 end
