@@ -1,1 +1,5 @@
---no-colors ~/nit/tests/test_prog/
+--no-colors ../test_prog/
+--no-colors ../TestNitsmells/LargeClass/
+--no-colors ../TestNitsmells/LongMethod/
+--no-colors ../TestNitsmells/LongParameterList/
+--no-colors ../TestNitsmells/FeatureEnvy/

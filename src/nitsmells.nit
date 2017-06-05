@@ -12,14 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
-# We need the framework that perfoms standard code for the main-program
-import test_phase
-
-# We usualy need specific phases
-# NOTE: `frontend` is sufficent in most case (it is often too much)
-import frontend
-
 import metrics_base
 import mclasses_metrics
 import semantize
@@ -29,22 +21,16 @@ import codesmells_metrics
 # Create a tool context to handle options and paths
 var toolcontext = new ToolContext
 toolcontext.tooldescription = "Usage: nitsmells [OPTION]... <file.nit>...\n Computes code smells on Nit programs."
-
 # We do not add other options, so process them now!
 toolcontext.process_options(args)
-
 # Get arguments
 var arguments = toolcontext.option_context.rest
-
 # We need a model to collect stufs
 var model = new Model
 # An a model builder to parse files
 var modelbuilder = new ModelBuilder(model, toolcontext)
-
 # Here we load an process all modules passed on the command line
 var mmodules = modelbuilder.parse_full(arguments)
 modelbuilder.run_phases
-
 print "*** CODE SMELLS METRICS ***"
-
 toolcontext.run_global_phases(mmodules)
