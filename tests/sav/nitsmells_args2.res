@@ -1,4 +1,3 @@
-Test ModelBuilder
 *** CODE SMELLS METRICS ***
 --- Code Smells Metrics ---
 -----------

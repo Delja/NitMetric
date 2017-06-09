@@ -1,9 +1,8 @@
-Test ModelBuilder
 *** CODE SMELLS METRICS ***
 --- Code Smells Metrics ---
 -----------
 test_prog$Character
-Large class: 6 attributes and 6 methods (5.414A 4.077M Average)
+Large class: 6 attributes and 18 methods (5.414A 7.161M Average)
 Feature envy:
 	Affected method(s):
 		-total_strengh 4/9

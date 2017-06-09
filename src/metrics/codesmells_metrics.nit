@@ -16,14 +16,11 @@
 module codesmells_metrics
 
 import frontend
-
 import metrics_base
 import mclasses_metrics
 import semantize
-
-import method_analyse_metrics
+import method_analyze_metrics
 import mclassdef_collect
-
 
 redef class ToolContext
 	var codesmells_metrics_phase = new CodeSmellsMetricsPhase(self, null)
@@ -39,13 +36,14 @@ class CodeSmellsMetricsPhase
 	redef fun process_mainmodule(mainmodule, given_mmodules) do
 		print toolcontext.format_h1("--- Code Smells Metrics ---")
 		self.set_all_average_metrics
-		var mclass_codesmell = new BadConceptions
+		var mclass_codesmell = new BadConceptonController
 		var collect = new Counter[MClassDef]
 		var mclassdefs = new Array[MClassDef]
 
 		for mclass in mainmodule.flatten_mclass_hierarchy do
 			mclass_codesmell.collect(mclass.mclassdefs,self)
 		end
+		#mclass_codesmell.print_all
 		mclass_codesmell.print_top(10)
 	end
 
@@ -54,19 +52,19 @@ class CodeSmellsMetricsPhase
 		var model_view = model_builder.model.private_view
 		self.average_number_of_lines = model_view.get_avg_linenumber(model_builder)
 		self.average_number_of_parameter = model_view.get_avg_parameter
-		self.average_number_of_method = model_view.get_avg_method(model_builder)
-		self.average_number_of_attribute = model_view.get_avg_attribut(model_builder)
+		self.average_number_of_method = model_view.get_avg_method
+		self.average_number_of_attribute = model_view.get_avg_attribut
 	end
 end
 
-class BadConceptions
+class BadConceptonController
 	# Code smell list
-	var bad_conception_elements = new Array[BadConceptionClass]
+	var bad_conception_elements = new Array[BadConceptionFinder]
 
 	# Print all element conception
 	fun print_all do
 		for bad_conception in bad_conception_elements do
-			bad_conception.print_all
+			bad_conception.print_collected_data
 		end
 	end
 
@@ -74,20 +72,20 @@ class BadConceptions
 	fun print_top(number: Int) do
 		var test = self.get_numbers_of_elements(number)
 		for bad_conception in test do
-			bad_conception.print_all
+			bad_conception.print_collected_data
 		end
 	end
 
 	# Collection
 	fun collect(mclassdefs: Array[MClassDef],phase: CodeSmellsMetricsPhase) do
 		for mclassdef in mclassdefs do
-			var bad_conception_class = new BadConceptionClass(mclassdef,phase)
+			var bad_conception_class = new BadConceptionFinder(mclassdef,phase)
 			bad_conception_class.collect
 			bad_conception_elements.add(bad_conception_class)
 		end
 	end
 
-	fun sort: Array[BadConceptionClass]
+	fun sort: Array[BadConceptionFinder]
 	do
 		var res = bad_conception_elements
 		var sorter = new BadConceptionComparator
@@ -95,8 +93,8 @@ class BadConceptions
 		return res
 	end
 
-	fun get_numbers_of_elements(number : Int) : Array[BadConceptionClass]do
-		var return_values = new Array[BadConceptionClass]
+	fun get_numbers_of_elements(number : Int) : Array[BadConceptionFinder]do
+		var return_values = new Array[BadConceptionFinder]
 		var list = self.sort
 		var min = number
 		if list.length <= number*2 then min = list.length
@@ -108,15 +106,10 @@ class BadConceptions
 	end
 end
 
-class BadConceptionClass
+class BadConceptionFinder
 	var mclassdef: MClassDef
 	var array_badconception = new Array[BadConception]
 	var phase: CodeSmellsMetricsPhase
-
-	init(mclassdef: MClassDef, phase: CodeSmellsMetricsPhase) do
-		self.mclassdef = mclassdef
-		self.phase = phase
-	end
 
 	fun collect do
 		var bad_conception_elements = new Array[BadConception]
@@ -124,16 +117,16 @@ class BadConceptionClass
 		bad_conception_elements.add(new LongParameterList(phase))
 		bad_conception_elements.add(new FeatureEnvy(phase))
 		bad_conception_elements.add(new LongMethod(phase))
+		bad_conception_elements.add(new NoAbstractImplementation(phase))
 		for bad_conception_element in bad_conception_elements do
-			var result = bad_conception_element.collect(self.mclassdef,phase.toolcontext.modelbuilder)
-			if result == true then array_badconception.add(bad_conception_element)
+			if bad_conception_element.collect(self.mclassdef,phase.toolcontext.modelbuilder) == true then array_badconception.add(bad_conception_element)
 		end
 	end
 
-	fun print_all do
+	fun print_collected_data do
 		if array_badconception.length != 0 then
-			print "-----------"
-			print "{mclassdef.full_name}"
+			print "--------------------"
+			print phase.toolcontext.format_h1("{mclassdef.full_name}")
 			for bad_conception in array_badconception do
 				bad_conception.print_result
 			end
@@ -141,8 +134,10 @@ class BadConceptionClass
 	end
 end
 
-class BadConception
+abstract class BadConception
 	var phase: CodeSmellsMetricsPhase
+
+	var score = 0
 
 	# Name
 	fun name: String is abstract
@@ -159,7 +154,6 @@ end
 
 class LargeClass
 	super BadConception
-
 	var number_attribut = 0
 
 	var number_method = 0
@@ -170,8 +164,8 @@ class LargeClass
 
 	redef fun collect(mclassdef, model_builder): Bool do
 		number_attribut = mclassdef.collect_intro_and_redef_mattributes(model_builder.model.private_view).length
-		# get the number of methods and subtract the get and set of attibutes (numberAtribut*2)
-		number_method = mclassdef.collect_intro_and_redef_methods(model_builder.model.private_view).length - (number_attribut*2)
+		# get the number of methods (subtract the get and set of attibutes with (numberAtribut*2))
+		number_method = mclassdef.collect_intro_and_redef_methods(model_builder.model.private_view).length
 		return number_method.to_f > phase.average_number_of_method and number_attribut.to_f > phase.average_number_of_attribute
 	end
 
@@ -182,7 +176,6 @@ end
 
 class LongParameterList
 	super BadConception
-
 	var bad_methods = new Array[MMethodDef]
 
 	redef fun name do return "LONGPL"
@@ -190,7 +183,7 @@ class LongParameterList
 	redef fun desc do return "Long parameter list"
 
 	redef fun collect(mclassdef, model_builder): Bool do
-		for meth in mclassdef.mpropdefs do
+		for meth in mclassdef.collect_intro_and_redef_mpropdefs(model_builder.model.private_view) do
 			# check if the property is a method definition
 			if not meth isa MMethodDef then continue
 			# Check if method has a signature
@@ -201,9 +194,8 @@ class LongParameterList
 		return bad_methods.not_empty
 	end
 
-
 	redef fun print_result do
-		print "{desc}:"
+		print phase.toolcontext.format_h2("{desc}:")
 		if bad_methods.length >= 1 then
 			print "	Affected method(s):"
 			for method in bad_methods do
@@ -215,7 +207,6 @@ end
 
 class FeatureEnvy
 	super BadConception
-
 	var bad_methods = new Array[MMethodDef]
 
 	redef fun name do return "FEM"
@@ -225,18 +216,21 @@ class FeatureEnvy
 	redef fun collect(mclassdef, model_builder): Bool do
 		var mmethoddefs = call_analyze_methods(mclassdef,model_builder)
 		for mmethoddef in mmethoddefs do
-			if mmethoddef.total_extern_call <= mmethoddef.total_self_call then continue
+			if mmethoddef.class_call[mmethoddef.class_call.max] <= mmethoddef.total_self_call then continue
 			bad_methods.add(mmethoddef)
 		end
 		return bad_methods.not_empty
 	end
 
 	redef fun print_result do
-		print "{desc}:"
+		print phase.toolcontext.format_h2("{desc}:")
 		if bad_methods.length >= 1 then
 			print "	Affected method(s):"
 			for method in bad_methods do
-				print "		-{method.name} {method.total_self_call}/{method.total_call}"
+				var max_class_call = method.class_call.max
+				if max_class_call != null then
+					print "		-{method.name} {method.total_self_call}/{method.total_call} move to {max_class_call.mclass.full_name}"
+				end
 			end
 		end
 	end
@@ -244,7 +238,6 @@ end
 
 class LongMethod
 	super BadConception
-
 	var bad_methods = new Array[MMethodDef]
 
 	redef fun name do return "LONGMETH"
@@ -261,7 +254,7 @@ class LongMethod
 	end
 
 	redef fun print_result do
-		print "{desc}:  Average {phase.average_number_of_lines.to_i} lines"
+		print phase.toolcontext.format_h2("{desc}:  Average {phase.average_number_of_lines.to_i} lines")
 		if bad_methods.length >= 1 then
 			print "	Affected method(s):"
 			for method in bad_methods do
@@ -271,11 +264,37 @@ class LongMethod
 	end
 end
 
+class NoAbstractImplementation
+	super BadConception
+	var bad_methods = new Array[MProperty]
+
+	redef fun name do return "LONGMETH"
+
+	redef fun desc do return "No Implemented abstract property"
+
+	redef fun collect(mclassdef, model_builder): Bool do
+		if mclassdef.collect_abstract_methods(model_builder.model.private_view).length != 0 then
+			bad_methods.add_all(mclassdef.collect_no_redef_propertys(mclassdef.collect_abstract_methods(model_builder.model.private_view),model_builder.model.private_view))
+		end
+		return bad_methods.not_empty
+	end
+
+	redef fun print_result do
+		print phase.toolcontext.format_h2("{desc}:")
+		if bad_methods.length >= 1 then
+			print "	Affected method(s):"
+			for method in bad_methods do
+				print "		-{method.name}"
+			end
+		end
+	end
+end
+
 redef class ModelView
 	fun get_avg_parameter: Float do
 		var counter = new Counter[MMethodDef]
 		for mclassdef in mclassdefs do
-			for method in mclassdef.mpropdefs do
+			for method in mclassdef.collect_intro_and_redef_mpropdefs(self) do
 			# check if the property is a method definition
 				if not method isa MMethodDef then continue
 				#Check if method has a signature
@@ -287,21 +306,20 @@ redef class ModelView
 		return counter.avg + counter.std_dev
 	end
 
-	fun get_avg_attribut(model_builder: ModelBuilder): Float do
+	fun get_avg_attribut: Float do
 		var counter = new Counter[MClassDef]
 		for mclassdef in mclassdefs do
-			var numberAttribut = mclassdef.collect_intro_and_redef_mattributes(model_builder.model.private_view).length
-			# numberAttribut += mclassdef.collect_inherited_mmethods.length
-			if numberAttribut != 0 then counter[mclassdef] = numberAttribut
+			var number_attributs = mclassdef.collect_intro_and_redef_mattributes(self).length
+			if number_attributs != 0 then counter[mclassdef] = number_attributs
 		end
 		return counter.avg + counter.std_dev
 	end
 
-	fun get_avg_method(model_builder: ModelBuilder): Float do
+	fun get_avg_method: Float do
 		var counter = new Counter[MClassDef]
 		for mclassdef in mclassdefs do
-			var numberMethode = mclassdef.collect_intro_and_redef_methods(model_builder.model.private_view).length - (mclassdef.collect_intro_and_redef_mattributes(model_builder.model.private_view).length*2)
-			if numberMethode != 0 then counter[mclassdef] = numberMethode
+			var number_methodes = mclassdef.collect_intro_and_redef_methods(self).length
+			if number_methodes != 0 then counter[mclassdef] = number_methodes
 		end
 		return counter.avg + counter.std_dev
 	end
@@ -316,7 +334,7 @@ redef class ModelView
 				if mmethoddef.line_number == 0 then continue
 				count += 1
 			end
-			if not mclassdef.collect_local_mproperties(model_builder.model.private_view).length != 0 then continue
+			if not mclassdef.collect_local_mproperties(self).length != 0 then continue
 			if count == 0 then continue
 			methods_analyse_metrics[mclassdef] = (result/count).to_i
 		end
@@ -326,6 +344,6 @@ end
 
 class BadConceptionComparator
 	super Comparator
-	redef type COMPARED: BadConceptionClass
+	redef type COMPARED: BadConceptionFinder
 	redef fun compare(a,b) do return a.array_badconception.length <=> b.array_badconception.length
 end

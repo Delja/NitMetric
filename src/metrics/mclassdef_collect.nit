@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 # This module redef Mclassdef to add new collect methods.
 
 module mclassdef_collect
@@ -149,6 +148,52 @@ redef class MClassDef
 		var set = new HashSet[MAttribute]
 		set.add_all collect_redef_mattributes(view)
 		set.add_all collect_intro_mattributes(view)
+		return set
+	end
+
+	fun collect_intro_and_redef_mproperties(view: ModelView): Set[MProperty] do
+		var set = new HashSet[MProperty]
+		set.add_all collect_redef_mproperties(view)
+		set.add_all collect_intro_mproperties(view)
+		return set
+	end
+
+	fun collect_intro_and_redef_mpropdefs(view: ModelView): Set[MPropDef] do
+		var set = new HashSet[MPropDef]
+		set.add_all collect_intro_mpropdefs(view)
+		set.add_all collect_redef_mpropdefs(view)
+		return set
+	end
+
+	fun collect_abstract_methods(view: ModelView): Set[MPropDef] do
+		var set = new HashSet[MPropDef]
+		var mpropdefs = collect_intro_mpropdefs(view)
+		for mpropdef in mpropdefs do
+			if mpropdef isa MMethodDef then
+				if mpropdef.is_abstract then set.add(mpropdef)
+			end
+		end
+		return set
+	end
+
+	fun collect_no_redef_propertys(mpropdefs: Set[MPropDef],view: ModelView):Set[MProperty] do
+		var return_no_implemented = new HashSet[MProperty]
+		var redef_mpropdefs = collect_all_children_redef_propertys(view)
+		for mpropdef in mpropdefs do
+			if redef_mpropdefs.has(mpropdef.mproperty) then continue
+			return_no_implemented.add(mpropdef.mproperty)
+		end
+		return return_no_implemented
+	end
+
+	fun collect_all_children_redef_propertys(view: ModelView): Set[MProperty] do
+		var set = new HashSet[MProperty]
+		for children in collect_children(view) do
+			for redef_mpropdef in children.collect_redef_mpropdefs(view) do
+				if not set.has(redef_mpropdef.mproperty) then set.add(redef_mpropdef.mproperty)
+			end
+			set.add_all(children.collect_all_children_redef_propertys(view))
+		end
 		return set
 	end
 end
