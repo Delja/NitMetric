@@ -41,10 +41,8 @@ fun call_analyze_methods(mclassdef: MClassDef, model_builder: ModelBuilder): Arr
 end
 
 fun set_analyse_result_methoddef(mmethoddef: MMethodDef, visitor: MethodAnalyzeMetrics): MMethodDef do
-	mmethoddef.total_call = visitor.total_call
 	mmethoddef.line_number = visitor.line_number.length
 	mmethoddef.total_self_call = visitor.total_self_call
-	mmethoddef.total_extern_call = visitor.total_call - visitor.total_self_call
 	mmethoddef.class_call = visitor.class_call
 	return mmethoddef
 end
@@ -52,7 +50,6 @@ end
 public class MethodAnalyzeMetrics
 	super Visitor
 	var ameth_prop_def: AMethPropdef
-	var total_call = 0
 	var line_number = new Counter[nullable Int]
 	var total_self_call = 0
 	var class_call = new Counter[MClassType]
@@ -72,7 +69,6 @@ public class MethodAnalyzeMetrics
 			if callsite != null then
 				var classsite_recv = callsite.recv
 				if classsite_recv isa MClassType then class_call.inc(classsite_recv)
-				self.total_call += 1
 				if callsite.recv_is_self == true then self.total_self_call += 1
 			end
 		end
@@ -80,9 +76,7 @@ public class MethodAnalyzeMetrics
 end
 
 redef class MMethodDef
-	var total_call = 0
 	var line_number = 0
 	var total_self_call = 0
-	var total_extern_call = 0
 	var class_call = new Counter[MClassType]
 end

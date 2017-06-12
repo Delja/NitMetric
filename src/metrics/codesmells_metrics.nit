@@ -43,8 +43,8 @@ class CodeSmellsMetricsPhase
 		for mclass in mainmodule.flatten_mclass_hierarchy do
 			mclass_codesmell.collect(mclass.mclassdefs,self)
 		end
-		#mclass_codesmell.print_all
-		mclass_codesmell.print_top(10)
+		mclass_codesmell.print_all
+		#mclass_codesmell.print_top(10)
 	end
 
 	fun set_all_average_metrics do
@@ -63,7 +63,7 @@ class BadConceptonController
 
 	# Print all element conception
 	fun print_all do
-		for bad_conception in bad_conception_elements do
+		for bad_conception in self.sort do
 			bad_conception.print_collected_data
 		end
 	end
@@ -229,7 +229,7 @@ class FeatureEnvy
 			for method in bad_methods do
 				var max_class_call = method.class_call.max
 				if max_class_call != null then
-					print "		-{method.name} {method.total_self_call}/{method.total_call} move to {max_class_call.mclass.full_name}"
+					print "		-{method.name} {method.total_self_call}/{method.class_call[max_class_call]} move to {max_class_call.mclass.full_name}"
 				end
 			end
 		end
