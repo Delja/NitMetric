@@ -43,8 +43,8 @@ class CodeSmellsMetricsPhase
 		for mclass in mainmodule.flatten_mclass_hierarchy do
 			mclass_codesmell.collect(mclass.mclassdefs,self)
 		end
-		mclass_codesmell.print_all
-		#mclass_codesmell.print_top(10)
+		#mclass_codesmell.print_all
+		mclass_codesmell.print_top(10)
 	end
 
 	fun set_all_average_metrics do
@@ -110,6 +110,7 @@ class BadConceptionFinder
 	var mclassdef: MClassDef
 	var array_badconception = new Array[BadConception]
 	var phase: CodeSmellsMetricsPhase
+	var score = 0.0
 
 	fun collect do
 		var bad_conception_elements = new Array[BadConception]
@@ -132,12 +133,20 @@ class BadConceptionFinder
 			end
 		end
 	end
+
+	fun collect_global_score do
+		if array_badconception.length != 0 then
+			for bad_conception in array_badconception do
+				self.score += bad_conception.score
+			end
+		end
+	end
 end
 
 abstract class BadConception
 	var phase: CodeSmellsMetricsPhase
 
-	var score = 0
+	var score = 0.0
 
 	# Name
 	fun name: String is abstract
@@ -150,6 +159,11 @@ abstract class BadConception
 
 	# Show results in console
 	fun print_result is abstract
+
+	# Show results in console
+	fun score_calcul do
+		score = 1.0
+	end
 end
 
 class LargeClass
@@ -166,11 +180,17 @@ class LargeClass
 		number_attribut = mclassdef.collect_intro_and_redef_mattributes(model_builder.model.private_view).length
 		# get the number of methods (subtract the get and set of attibutes with (numberAtribut*2))
 		number_method = mclassdef.collect_intro_and_redef_methods(model_builder.model.private_view).length
+		score_calcul
 		return number_method.to_f > phase.average_number_of_method and number_attribut.to_f > phase.average_number_of_attribute
 	end
 
 	redef fun print_result do
 		print phase.toolcontext.format_h2("{desc}: {number_attribut} attributes and {number_method} methods ({phase.average_number_of_attribute}A {phase.average_number_of_method}M Average)")
+	end
+
+	redef fun score_calcul do
+		print "{(number_method.to_f + number_attribut.to_f) / (phase.average_number_of_method + phase.average_number_of_attribute)}"
+		score = (number_method.to_f + number_attribut.to_f) / (phase.average_number_of_method + phase.average_number_of_attribute)
 	end
 end
 
@@ -191,6 +211,7 @@ class LongParameterList
 			if meth.msignature.mparameters.length <= 4 then continue
 			bad_methods.add(meth)
 		end
+		score_calcul
 		return bad_methods.not_empty
 	end
 
@@ -201,6 +222,13 @@ class LongParameterList
 			for method in bad_methods do
 				print "		-{method.name} has {method.msignature.mparameters.length} parameters"
 			end
+		end
+	end
+
+	redef fun score_calcul do
+		if bad_methods.length >= 1 then
+			print " LongParameterList {bad_methods.length.to_f / phase.average_number_of_method}"
+			score = bad_methods.length.to_f / phase.average_number_of_method
 		end
 	end
 end
@@ -216,9 +244,11 @@ class FeatureEnvy
 	redef fun collect(mclassdef, model_builder): Bool do
 		var mmethoddefs = call_analyze_methods(mclassdef,model_builder)
 		for mmethoddef in mmethoddefs do
-			if mmethoddef.class_call[mmethoddef.class_call.max] <= mmethoddef.total_self_call then continue
+			var max_class_call = mmethoddef.class_call.max
+			if mmethoddef.class_call[max_class_call] <= mmethoddef.total_self_call or max_class_call.mclass.full_name == mclassdef.mclass.full_name then continue
 			bad_methods.add(mmethoddef)
 		end
+		score_calcul
 		return bad_methods.not_empty
 	end
 
@@ -229,9 +259,20 @@ class FeatureEnvy
 			for method in bad_methods do
 				var max_class_call = method.class_call.max
 				if max_class_call != null then
-					print "		-{method.name} {method.total_self_call}/{method.class_call[max_class_call]} move to {max_class_call.mclass.full_name}"
+					if max_class_call.mclass.mclass_type isa MGenericType then
+						print "		-{method.name}({method.msignature.mparameters.to_s}) {method.total_self_call}/{method.class_call[max_class_call]}"
+					else
+						print "		-{method.name}({method.msignature.mparameters.to_s}) {method.total_self_call}/{method.class_call[max_class_call]} move to {max_class_call.mclass.full_name}"
+					end
 				end
 			end
+		end
+	end
+
+	redef fun score_calcul do
+		if bad_methods.length >= 1 then
+			print " FeatureEnvy {bad_methods.length.to_f / phase.average_number_of_method}"
+			score = bad_methods.length.to_f / phase.average_number_of_method
 		end
 	end
 end
