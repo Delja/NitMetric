@@ -17,9 +17,7 @@ module method_analyze_metrics
 
 # We usualy need specific phases
 # NOTE: `frontend` is sufficent in most case (it is often too much)
-import metrics_base
-import mclasses_metrics
-import semantize
+import nitsmell_toolcontext
 import mclassdef_collect
 
 

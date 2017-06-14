@@ -16,9 +16,7 @@
 module codesmells_metrics
 
 import frontend
-import metrics_base
-import mclasses_metrics
-import semantize
+import nitsmell_toolcontext
 import method_analyze_metrics
 import mclassdef_collect
 
@@ -113,11 +111,18 @@ class BadConceptionFinder
 
 	fun collect do
 		var bad_conception_elements = new Array[BadConception]
-		bad_conception_elements.add(new LargeClass(phase))
-		bad_conception_elements.add(new LongParameterList(phase))
-		bad_conception_elements.add(new FeatureEnvy(phase))
-		bad_conception_elements.add(new LongMethod(phase))
-		bad_conception_elements.add(new NoAbstractImplementation(phase))
+		if phase.toolcontext.opt_all.value then
+			bad_conception_elements.add(new LargeClass(phase))
+			bad_conception_elements.add(new LongParameterList(phase))
+			bad_conception_elements.add(new FeatureEnvy(phase))
+			bad_conception_elements.add(new LongMethod(phase))
+			bad_conception_elements.add(new NoAbstractImplementation(phase))
+		else if phase.toolcontext.opt_feature_envy.value then
+			bad_conception_elements.add(new FeatureEnvy(phase))
+		else if phase.toolcontext.opt_long_method.value then
+			bad_conception_elements.add(new LongMethod(phase))
+		end
+
 		for bad_conception_element in bad_conception_elements do
 			if bad_conception_element.collect(self.mclassdef,phase.toolcontext.modelbuilder) == true then array_badconception.add(bad_conception_element)
 		end
