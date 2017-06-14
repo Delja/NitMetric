@@ -70,8 +70,7 @@ class BadConceptonController
 
 	# Print number of top element conception
 	fun print_top(number: Int) do
-		var test = self.get_numbers_of_elements(number)
-		for bad_conception in test do
+		for bad_conception in self.get_numbers_of_elements(number) do
 			bad_conception.print_collected_data
 		end
 	end
@@ -122,6 +121,7 @@ class BadConceptionFinder
 		for bad_conception_element in bad_conception_elements do
 			if bad_conception_element.collect(self.mclassdef,phase.toolcontext.modelbuilder) == true then array_badconception.add(bad_conception_element)
 		end
+		collect_global_score
 	end
 
 	fun print_collected_data do
@@ -189,7 +189,7 @@ class LargeClass
 	end
 
 	redef fun score_calcul do
-		print "{(number_method.to_f + number_attribut.to_f) / (phase.average_number_of_method + phase.average_number_of_attribute)}"
+		#print "{(number_method.to_f + number_attribut.to_f) / (phase.average_number_of_method + phase.average_number_of_attribute)}"
 		score = (number_method.to_f + number_attribut.to_f) / (phase.average_number_of_method + phase.average_number_of_attribute)
 	end
 end
@@ -217,7 +217,7 @@ class LongParameterList
 
 	redef fun print_result do
 		print phase.toolcontext.format_h2("{desc}:")
-		if bad_methods.length >= 1 then
+		if bad_methods.not_empty then
 			print "	Affected method(s):"
 			for method in bad_methods do
 				print "		-{method.name} has {method.msignature.mparameters.length} parameters"
@@ -226,8 +226,8 @@ class LongParameterList
 	end
 
 	redef fun score_calcul do
-		if bad_methods.length >= 1 then
-			print " LongParameterList {bad_methods.length.to_f / phase.average_number_of_method}"
+		if bad_methods.not_empty then
+			#print " LongParameterList {bad_methods.length.to_f / phase.average_number_of_method}"
 			score = bad_methods.length.to_f / phase.average_number_of_method
 		end
 	end
@@ -254,7 +254,7 @@ class FeatureEnvy
 
 	redef fun print_result do
 		print phase.toolcontext.format_h2("{desc}:")
-		if bad_methods.length >= 1 then
+		if bad_methods.not_empty then
 			print "	Affected method(s):"
 			for method in bad_methods do
 				var max_class_call = method.class_call.max
@@ -270,8 +270,8 @@ class FeatureEnvy
 	end
 
 	redef fun score_calcul do
-		if bad_methods.length >= 1 then
-			print " FeatureEnvy {bad_methods.length.to_f / phase.average_number_of_method}"
+		if bad_methods.not_empty then
+			#print " FeatureEnvy {bad_methods.length.to_f / phase.average_number_of_method}"
 			score = bad_methods.length.to_f / phase.average_number_of_method
 		end
 	end
@@ -296,11 +296,18 @@ class LongMethod
 
 	redef fun print_result do
 		print phase.toolcontext.format_h2("{desc}:  Average {phase.average_number_of_lines.to_i} lines")
-		if bad_methods.length >= 1 then
+		if bad_methods.not_empty then
 			print "	Affected method(s):"
 			for method in bad_methods do
 				print "		-{method.name} has {method.line_number} lines"
 			end
+		end
+	end
+
+	redef fun score_calcul do
+		if bad_methods.not_empty then
+			#print " FeatureEnvy {bad_methods.length.to_f / phase.average_number_of_method}"
+			score = bad_methods.length.to_f / phase.average_number_of_method
 		end
 	end
 end
@@ -314,19 +321,27 @@ class NoAbstractImplementation
 	redef fun desc do return "No Implemented abstract property"
 
 	redef fun collect(mclassdef, model_builder): Bool do
-		if mclassdef.collect_abstract_methods(model_builder.model.private_view).length != 0 then
+		if mclassdef.collect_abstract_methods(model_builder.model.private_view).not_empty then
 			bad_methods.add_all(mclassdef.collect_no_redef_propertys(mclassdef.collect_abstract_methods(model_builder.model.private_view),model_builder.model.private_view))
 		end
+		self.score_calcul
 		return bad_methods.not_empty
 	end
 
 	redef fun print_result do
 		print phase.toolcontext.format_h2("{desc}:")
-		if bad_methods.length >= 1 then
+		if bad_methods.not_empty then
 			print "	Affected method(s):"
 			for method in bad_methods do
 				print "		-{method.name}"
 			end
+		end
+	end
+
+	redef fun score_calcul do
+		if bad_methods.not_empty then
+			#print " FeatureEnvy {bad_methods.length.to_f / phase.average_number_of_method}"
+			score = bad_methods.length.to_f / phase.average_number_of_method
 		end
 	end
 end
@@ -386,5 +401,11 @@ end
 class BadConceptionComparator
 	super Comparator
 	redef type COMPARED: BadConceptionFinder
-	redef fun compare(a,b) do return a.array_badconception.length <=> b.array_badconception.length
+	redef fun compare(a,b) do
+		var test = a.array_badconception.length <=> b.array_badconception.length
+		if test == 0 then
+			return a.score <=> b.score
+		end
+		return a.array_badconception.length <=> b.array_badconception.length
+	end
 end
