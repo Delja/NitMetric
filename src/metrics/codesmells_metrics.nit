@@ -111,17 +111,11 @@ class BadConceptionFinder
 
 	fun collect do
 		var bad_conception_elements = new Array[BadConception]
-		if phase.toolcontext.opt_all.value then
-			bad_conception_elements.add(new LargeClass(phase))
-			bad_conception_elements.add(new LongParameterList(phase))
-			bad_conception_elements.add(new FeatureEnvy(phase))
-			bad_conception_elements.add(new LongMethod(phase))
-			bad_conception_elements.add(new NoAbstractImplementation(phase))
-		else if phase.toolcontext.opt_feature_envy.value then
-			bad_conception_elements.add(new FeatureEnvy(phase))
-		else if phase.toolcontext.opt_long_method.value then
-			bad_conception_elements.add(new LongMethod(phase))
-		end
+		if phase.toolcontext.opt_feature_envy.value or phase.toolcontext.opt_all.value then bad_conception_elements.add(new FeatureEnvy(phase))
+		if phase.toolcontext.opt_long_method.value or phase.toolcontext.opt_all.value then 	bad_conception_elements.add(new LongMethod(phase))
+		if phase.toolcontext.opt_long_params.value or phase.toolcontext.opt_all.value then 	bad_conception_elements.add(new LongParameterList(phase))
+		if phase.toolcontext.opt_no_abstract_implementation.value or phase.toolcontext.opt_all.value then bad_conception_elements.add(new NoAbstractImplementation(phase))
+		if phase.toolcontext.opt_feature_envy.value or phase.toolcontext.opt_all.value then bad_conception_elements.add(new LargeClass(phase))
 
 		for bad_conception_element in bad_conception_elements do
 			if bad_conception_element.collect(self.mclassdef,phase.toolcontext.modelbuilder) == true then array_badconception.add(bad_conception_element)
@@ -209,11 +203,13 @@ class LongParameterList
 
 	redef fun collect(mclassdef, model_builder): Bool do
 		for meth in mclassdef.collect_intro_and_redef_mpropdefs(model_builder.model.private_view) do
+			var threshold_value = 4
+			if phase.toolcontext.opt_long_params_threshold.value != 0 then threshold_value = phase.toolcontext.opt_long_params_threshold.value
 			# check if the property is a method definition
 			if not meth isa MMethodDef then continue
 			# Check if method has a signature
 			if meth.msignature == null then continue
-			if meth.msignature.mparameters.length <= 4 then continue
+			if meth.msignature.mparameters.length <= threshold_value then continue
 			bad_methods.add(meth)
 		end
 		score_calcul
@@ -264,7 +260,7 @@ class FeatureEnvy
 			for method in bad_methods do
 				var max_class_call = method.class_call.max
 				if max_class_call != null then
-					if max_class_call.mclass.mclass_type isa MGenericType then
+					if max_class_call.mclass.mclass_type isa MGenericType and  phase.toolcontext.opt_move_generics.value then
 						print "		-{method.name}({method.msignature.mparameters.to_s}) {method.total_self_call}/{method.class_call[max_class_call]}"
 					else
 						print "		-{method.name}({method.msignature.mparameters.to_s}) {method.total_self_call}/{method.class_call[max_class_call]} move to {max_class_call.mclass.full_name}"
@@ -292,8 +288,11 @@ class LongMethod
 
 	redef fun collect(mclassdef, model_builder): Bool do
 		var mmethoddefs = call_analyze_methods(mclassdef,model_builder)
+		var threshold_value = phase.average_number_of_lines.to_i
+		if phase.toolcontext.opt_long_method_threshold.value != 0 then threshold_value = phase.toolcontext.opt_long_method_threshold.value
+
 		for mmethoddef in mmethoddefs do
-			if mmethoddef.line_number <= phase.average_number_of_lines.to_i then continue
+			if mmethoddef.line_number <= threshold_value then continue
 			bad_methods.add(mmethoddef)
 		end
 		return bad_methods.not_empty

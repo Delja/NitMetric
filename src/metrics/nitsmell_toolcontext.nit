@@ -24,16 +24,22 @@ import console
 redef class ToolContext
 
 	# --all
-	var opt_all = new OptionBool("Compute all code smells", "--all")
-	# --mmodules
-	var opt_feature_envy = new OptionBool("Compute feature envy", "--feature-envy")
-	# --mclassses
-	var opt_long_method = new OptionBool("Compute long method", "--long-methods")
-	# --dir
-	var opt_long_method_threshold = new OptionString("Directory where some statistics files are generated", "--long-method-threshold" , "-lmt")
-	# --dir
-	var opt_long_params_threshold = new OptionString("Directory where some statistics files are generated", "--long-params-threshold" , "-lpt")
-	# --no-colors
+	var opt_all = new OptionBool("Print all code smells", "--all")
+	# --feature-envy
+	var opt_feature_envy = new OptionBool("Print feature envy", "--feature-envy")
+	# --long-methods
+	var opt_long_method = new OptionBool("Print long method", "--long-methods")
+	# --no-abstract-implementation
+	var opt_no_abstract_implementation = new OptionBool("Print the no implemented abstract method", "--no-abstract-implementation")
+	# --long-params
+	var opt_long_params = new OptionBool("Print long parameters", "--long-params")
+	# --move-generics
+	var opt_move_generics = new OptionBool("Print the move proposition for generic class", "--move-generics")
+	# --move-generics
+	var opt_long_method_threshold = new OptionInt("Select long method threshold", 0 ,"--long-method-threshold")
+	# --long-method-threshold
+	var opt_long_params_threshold = new OptionInt("Select long method parameters threshold", 0 ,"--long-params-threshold")
+	# --long-params-threshold
 	var opt_nocolors = new OptionBool("Disable colors in console outputs", "--no-colors")
 
 	redef init
@@ -42,8 +48,11 @@ redef class ToolContext
 		self.option_context.add_option(opt_all)
 		self.option_context.add_option(opt_feature_envy)
 		self.option_context.add_option(opt_long_method)
+		self.option_context.add_option(opt_no_abstract_implementation)
+		self.option_context.add_option(opt_long_params)
 		self.option_context.add_option(opt_long_method_threshold)
 		self.option_context.add_option(opt_long_params_threshold)
+		self.option_context.add_option(opt_move_generics)
 		self.option_context.add_option(opt_nocolors)
 	end
 
