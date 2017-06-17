@@ -188,7 +188,6 @@ class LargeClass
 	end
 
 	redef fun score_calcul do
-		#print "{(number_method.to_f + number_attribut.to_f) / (phase.average_number_of_method + phase.average_number_of_attribute)}"
 		score = (number_method.to_f + number_attribut.to_f) / (phase.average_number_of_method + phase.average_number_of_attribute)
 	end
 end
@@ -228,7 +227,6 @@ class LongParameterList
 
 	redef fun score_calcul do
 		if bad_methods.not_empty then
-			#print " LongParameterList {bad_methods.length.to_f / phase.average_number_of_method}"
 			score = bad_methods.length.to_f / phase.average_number_of_method
 		end
 	end
@@ -261,9 +259,9 @@ class FeatureEnvy
 				var max_class_call = method.class_call.max
 				if max_class_call != null then
 					if max_class_call.mclass.mclass_type isa MGenericType and  phase.toolcontext.opt_move_generics.value then
-						print "		-{method.name}({method.msignature.mparameters.to_s}) {method.total_self_call}/{method.class_call[max_class_call]}"
+						print "		-{method.name}({method.msignature.mparameters.plain_to_s}) {method.total_self_call}/{method.class_call[max_class_call]}"
 					else
-						print "		-{method.name}({method.msignature.mparameters.to_s}) {method.total_self_call}/{method.class_call[max_class_call]} move to {max_class_call.mclass.full_name}"
+						print "		-{method.name}({method.msignature.mparameters.plain_to_s}) {method.total_self_call}/{method.class_call[max_class_call]} move to {max_class_call}"
 					end
 				end
 			end
@@ -272,7 +270,6 @@ class FeatureEnvy
 
 	redef fun score_calcul do
 		if bad_methods.not_empty then
-			#print " FeatureEnvy {bad_methods.length.to_f / phase.average_number_of_method}"
 			score = bad_methods.length.to_f / phase.average_number_of_method
 		end
 	end
@@ -310,7 +307,6 @@ class LongMethod
 
 	redef fun score_calcul do
 		if bad_methods.not_empty then
-			#print " FeatureEnvy {bad_methods.length.to_f / phase.average_number_of_method}"
 			score = bad_methods.length.to_f / phase.average_number_of_method
 		end
 	end
@@ -344,7 +340,6 @@ class NoAbstractImplementation
 
 	redef fun score_calcul do
 		if bad_methods.not_empty then
-			#print " FeatureEnvy {bad_methods.length.to_f / phase.average_number_of_method}"
 			score = bad_methods.length.to_f / phase.average_number_of_method
 		end
 	end
@@ -411,5 +406,19 @@ class BadConceptionComparator
 			return a.score <=> b.score
 		end
 		return a.array_badconception.length <=> b.array_badconception.length
+	end
+end
+
+redef class Array[E]
+	redef fun plain_to_s
+	do
+		var return_values = ""
+		if self.length == 1 then return self[0].to_s
+		var i = 1
+		for it in self do
+			if i == self.length then return_values += it.to_s else return_values += it.to_s + ", "
+			i += 1
+		end
+		return return_values
 	end
 end
