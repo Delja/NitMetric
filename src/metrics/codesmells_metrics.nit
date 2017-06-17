@@ -126,7 +126,7 @@ class BadConceptionFinder
 	fun print_collected_data do
 		if array_badconception.length != 0 then
 			print "--------------------"
-			print phase.toolcontext.format_h1("{mclassdef.full_name}")
+			print phase.toolcontext.format_h1("Full name: {mclassdef.full_name} Location: {mclassdef.location}")
 			for bad_conception in array_badconception do
 				bad_conception.print_result
 			end
