@@ -41,7 +41,11 @@ class CodeSmellsMetricsPhase
 		for mclass in mainmodule.flatten_mclass_hierarchy do
 			mclass_codesmell.collect(mclass.mclassdefs,self)
 		end
-		mclass_codesmell.print_top(10)
+		if toolcontext.opt_get_all.value then
+			mclass_codesmell.print_all
+		else
+			mclass_codesmell.print_top(10)
+		end
 	end
 
 	fun set_all_average_metrics do
@@ -320,15 +324,17 @@ end
 
 class NoAbstractImplementation
 	super BadConception
-	var bad_methods = new Array[MProperty]
+	var bad_methods = new Array[MMethodDef]
 
 	redef fun name do return "LONGMETH"
 
 	redef fun desc do return "No Implemented abstract property"
 
 	redef fun collect(mclassdef, model_builder): Bool do
-		if mclassdef.collect_abstract_methods(model_builder.model.private_view).not_empty then
-			bad_methods.add_all(mclassdef.collect_no_redef_propertys(mclassdef.collect_abstract_methods(model_builder.model.private_view),model_builder.model.private_view))
+		if mclassdef.mclass.is_abstract != true and mclassdef.mclass.is_interface != true then
+			if mclassdef.collect_abstract_methods(model_builder.model.private_view).not_empty then
+				bad_methods.add_all(mclassdef.collect_not_define_properties(model_builder.model.private_view))
+			end
 		end
 		self.score_calcul
 		return bad_methods.not_empty

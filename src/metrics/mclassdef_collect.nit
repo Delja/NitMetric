@@ -158,6 +158,13 @@ redef class MClassDef
 		return set
 	end
 
+	fun collect_all_mproperties(view: ModelView): Set[MProperty] do
+		var set = new HashSet[MProperty]
+		set.add_all collect_inherited_mproperties(view)
+		set.add_all collect_intro_and_redef_mproperties(view)
+		return set
+	end
+
 	fun collect_intro_and_redef_mpropdefs(view: ModelView): Set[MPropDef] do
 		var set = new HashSet[MPropDef]
 		set.add_all collect_intro_mpropdefs(view)
@@ -165,8 +172,8 @@ redef class MClassDef
 		return set
 	end
 
-	fun collect_abstract_methods(view: ModelView): Set[MPropDef] do
-		var set = new HashSet[MPropDef]
+	fun collect_abstract_methods(view: ModelView): Set[MMethodDef] do
+		var set = new HashSet[MMethodDef]
 		var mpropdefs = collect_intro_mpropdefs(view)
 		for mpropdef in mpropdefs do
 			if mpropdef isa MMethodDef then
@@ -176,23 +183,15 @@ redef class MClassDef
 		return set
 	end
 
-	fun collect_no_redef_propertys(mpropdefs: Set[MPropDef],view: ModelView):Set[MProperty] do
-		var return_no_implemented = new HashSet[MProperty]
-		var redef_mpropdefs = collect_all_children_redef_propertys(view)
-		for mpropdef in mpropdefs do
-			if redef_mpropdefs.has(mpropdef.mproperty) then continue
-			return_no_implemented.add(mpropdef.mproperty)
-		end
-		return return_no_implemented
-	end
-
-	fun collect_all_children_redef_propertys(view: ModelView): Set[MProperty] do
-		var set = new HashSet[MProperty]
-		for children in collect_children(view) do
-			for redef_mpropdef in children.collect_redef_mpropdefs(view) do
-				if not set.has(redef_mpropdef.mproperty) then set.add(redef_mpropdef.mproperty)
+	fun collect_not_define_properties(view: ModelView):Set[MMethodDef] do
+		var set = new HashSet[MMethodDef]
+		for mpropdef in collect_abstract_methods(view) do
+			var redef_count = 0
+			for mprop in mpropdef.mproperty.mpropdefs do
+				if mprop.is_abstract then continue
+				redef_count += 1
 			end
-			set.add_all(children.collect_all_children_redef_propertys(view))
+			if redef_count == 0 then set.add(mpropdef)
 		end
 		return set
 	end
