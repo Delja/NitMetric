@@ -35,4 +35,11 @@ class LongMethodClass
 		var starter = new Starter
 		test_variable = 3
 	end
+
+	fun extra_long_method do
+		var starter = new Starter
+		test_variable = 3
+		test_variable = 5
+		test_variable = 8
+	end
 end

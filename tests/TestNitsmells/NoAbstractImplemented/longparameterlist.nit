@@ -20,7 +20,7 @@ import platform
 class Starter
 	fun no_para do end
 
-	fun no_para2() do end
+	fun no_para2 do end
 	
 	fun name: Int is abstract
 	
