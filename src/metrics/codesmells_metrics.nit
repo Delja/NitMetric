@@ -121,7 +121,7 @@ class BadConceptionFinder
 		if phase.toolcontext.opt_long_method.value or phase.toolcontext.opt_all.value then 	bad_conception_elements.add(new LongMethod(phase))
 		if phase.toolcontext.opt_long_params.value or phase.toolcontext.opt_all.value then 	bad_conception_elements.add(new LongParameterList(phase))
 		if phase.toolcontext.opt_no_abstract_implementation.value or phase.toolcontext.opt_all.value then bad_conception_elements.add(new NoAbstractImplementation(phase))
-		if phase.toolcontext.opt_feature_envy.value or phase.toolcontext.opt_all.value then bad_conception_elements.add(new LargeClass(phase))
+		if phase.toolcontext.opt_large_class.value or phase.toolcontext.opt_all.value then bad_conception_elements.add(new LargeClass(phase))
 		# Collected all code smell if their state is true
 		for bad_conception_element in bad_conception_elements do
 			if bad_conception_element.collect(self.mclassdef,phase.toolcontext.modelbuilder) == true then array_badconception.add(bad_conception_element)
@@ -267,7 +267,7 @@ class FeatureEnvy
 				var max_class_call = method.class_call.max
 				if max_class_call != null then
 					# Check if the type of max call class is generique
-					if max_class_call.mclass.mclass_type isa MGenericType and phase.toolcontext.opt_move_generics.value then
+					if max_class_call.mclass.mclass_type isa MGenericType and phase.toolcontext.opt_move_generics.value == false then
 						print "		-{method.name}({method.msignature.mparameters.plain_to_s}) {method.total_self_call}/{method.class_call[max_class_call]}"
 					else
 						print "		-{method.name}({method.msignature.mparameters.plain_to_s}) {method.total_self_call}/{method.class_call[max_class_call]} move to {max_class_call}"
@@ -302,6 +302,7 @@ class LongMethod
 			if mmethoddef.line_number <= threshold_value then continue
 			self.bad_methods.add(mmethoddef)
 		end
+		self.score_calcul
 		return self.bad_methods.not_empty
 	end
 

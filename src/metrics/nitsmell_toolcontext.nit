@@ -24,9 +24,13 @@ import console
 redef class ToolContext
 
 	# --all
-	var opt_all = new OptionBool("Print all code smells", "--all")
+	var opt_all = new OptionBool("Print all code smells for top 10 class", "--all")
+	# --get-all
+	var opt_get_all = new OptionBool("Print all code smells for all class", "--get-all")
 	# --feature-envy
 	var opt_feature_envy = new OptionBool("Print feature envy", "--feature-envy")
+	# --feature-envy
+	var opt_large_class = new OptionBool("Print large class", "--large-class")
 	# --long-methods
 	var opt_long_method = new OptionBool("Print long method", "--long-methods")
 	# --no-abstract-implementation
@@ -46,6 +50,8 @@ redef class ToolContext
 	do
 		super
 		self.option_context.add_option(opt_all)
+		self.option_context.add_option(opt_large_class)
+		self.option_context.add_option(opt_get_all)
 		self.option_context.add_option(opt_feature_envy)
 		self.option_context.add_option(opt_long_method)
 		self.option_context.add_option(opt_no_abstract_implementation)
