@@ -29,7 +29,7 @@ redef class ToolContext
 	var opt_get_all = new OptionBool("Print all code smells for all class", "--get-all")
 	# --feature-envy
 	var opt_feature_envy = new OptionBool("Print feature envy", "--feature-envy")
-	# --feature-envy
+	# --large-class
 	var opt_large_class = new OptionBool("Print large class", "--large-class")
 	# --long-methods
 	var opt_long_method = new OptionBool("Print long method", "--long-methods")

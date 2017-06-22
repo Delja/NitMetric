@@ -114,6 +114,7 @@ class BadConceptionFinder
 	var phase: CodeSmellsMetricsPhase
 	var score = 0.0
 
+	# Collect code smell with selected toolcontext option
 	fun collect do
 		var bad_conception_elements = new Array[BadConception]
 		# Check toolcontext option
@@ -165,7 +166,7 @@ abstract class BadConception
 	# Show results in console
 	fun print_result is abstract
 
-	# Show results in console
+	# Compute code smell score to sort
 	fun score_calcul do
 		score = 1.0
 	end
@@ -234,7 +235,7 @@ class LongParameterList
 
 	redef fun score_calcul do
 		if self.bad_methods.not_empty then
-			self.score = self.bad_methods.length.to_f / phase.average_number_of_method
+			self.score = self.bad_methods.length.to_f/ phase.average_number_of_method
 		end
 	end
 end
