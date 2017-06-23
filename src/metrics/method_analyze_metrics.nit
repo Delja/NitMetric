@@ -61,7 +61,6 @@ public class MethodAnalyzeMetrics
 				end
 			end
 		end
-
 		if n isa ASendExpr then
 			var callsite = n.callsite
 			if callsite != null then

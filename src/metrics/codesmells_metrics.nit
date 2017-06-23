@@ -127,6 +127,7 @@ class BadConceptionFinder
 		for bad_conception_element in bad_conception_elements do
 			if bad_conception_element.collect(self.mclassdef,phase.toolcontext.modelbuilder) == true then array_badconception.add(bad_conception_element)
 		end
+		# Compute global score
 		collect_global_score
 	end
 
@@ -269,9 +270,9 @@ class FeatureEnvy
 				if max_class_call != null then
 					# Check if the type of max call class is generique
 					if max_class_call.mclass.mclass_type isa MGenericType and phase.toolcontext.opt_move_generics.value == false then
-						print "		-{method.name}({method.msignature.mparameters.plain_to_s}) {method.total_self_call}/{method.class_call[max_class_call]}"
+						print "		-{method.name}({method.msignature.mparameters.join(", ")}) {method.total_self_call}/{method.class_call[max_class_call]}"
 					else
-						print "		-{method.name}({method.msignature.mparameters.plain_to_s}) {method.total_self_call}/{method.class_call[max_class_call]} move to {max_class_call}"
+						print "		-{method.name}({method.msignature.mparameters.join(", ")}) {method.total_self_call}/{method.class_call[max_class_call]} move to {max_class_call}"
 					end
 				end
 			end
@@ -420,19 +421,5 @@ class BadConceptionComparator
 			return a.score <=> b.score
 		end
 		return a.array_badconception.length <=> b.array_badconception.length
-	end
-end
-
-redef class Array[E]
-	redef fun plain_to_s
-	do
-		var return_values = ""
-		if self.length == 1 then return self[0].to_s
-		var i = 1
-		for it in self do
-			if i == self.length then return_values += it.to_s else return_values += it.to_s + ", "
-			i += 1
-		end
-		return return_values
 	end
 end
