@@ -41,14 +41,16 @@ class CodeSmellsMetricsPhase
 		for mclass in mainmodule.flatten_mclass_hierarchy do
 			mclass_codesmell.collect(mclass.mclassdefs,self)
 		end
-
-		mclass_codesmell.print_global_stat(self)
-
-		if toolcontext.opt_get_all.value then
-			mclass_codesmell.print_all
+		if toolcontext.opt_print_stats.value then
+			mclass_codesmell.print_global_stat(self)
 		else
-			mclass_codesmell.print_top(10)
+			if toolcontext.opt_get_all.value then
+			mclass_codesmell.print_all
+			else
+				mclass_codesmell.print_top(10)
+			end
 		end
+
 	end
 
 	fun set_all_average_metrics do
@@ -113,11 +115,27 @@ class BadConceptonController
 	end
 
 	fun print_global_stat(phase: CodeSmellsMetricsPhase) do
+		var counter = get_collected_code_smell
 		print "--------------------"
 		print phase.toolcontext.format_h1("Global statistics")
 		print phase.toolcontext.format_h2("Number of tested class: {number_of_tested_class}")
 		print phase.toolcontext.format_h2("Number of collect class: {bad_conception_elements.length}")
 		print phase.toolcontext.format_h2("Number of average code smell: {average_code_smell}")
+		print phase.toolcontext.format_h2("Detected code smells statistics (number of elements // Percentage of impacted class)")
+		for code_smell in counter.sort do
+			print "	* {code_smell}: {counter[code_smell]} class ({counter[code_smell].to_f * 100.0 / bad_conception_elements.length.to_f}%)"
+		end
+	end
+
+
+	fun get_collected_code_smell : Counter[String] do
+		var counter = new Counter[String]
+		for bad_conception_element in bad_conception_elements do
+			for badconception in bad_conception_element.array_badconception do
+				counter.inc(badconception.desc)
+			end
+		end
+		return counter
 	end
 
 	fun average_code_smell : Float do
@@ -139,11 +157,11 @@ class BadConceptionFinder
 	fun collect : Bool do
 		var bad_conception_elements = new Array[BadConception]
 		# Check toolcontext option
-		if phase.toolcontext.opt_feature_envy.value or phase.toolcontext.opt_all.value then bad_conception_elements.add(new FeatureEnvy(phase))
-		if phase.toolcontext.opt_long_method.value or phase.toolcontext.opt_all.value then 	bad_conception_elements.add(new LongMethod(phase))
-		if phase.toolcontext.opt_long_params.value or phase.toolcontext.opt_all.value then 	bad_conception_elements.add(new LongParameterList(phase))
-		if phase.toolcontext.opt_no_abstract_implementation.value or phase.toolcontext.opt_all.value then bad_conception_elements.add(new NoAbstractImplementation(phase))
-		if phase.toolcontext.opt_large_class.value or phase.toolcontext.opt_all.value then bad_conception_elements.add(new LargeClass(phase))
+		if phase.toolcontext.opt_feature_envy.value or phase.toolcontext.opt_all.value or phase.toolcontext.opt_print_stats.value then bad_conception_elements.add(new FeatureEnvy(phase))
+		if phase.toolcontext.opt_long_method.value or phase.toolcontext.opt_all.value or phase.toolcontext.opt_print_stats.value then 	bad_conception_elements.add(new LongMethod(phase))
+		if phase.toolcontext.opt_long_params.value or phase.toolcontext.opt_all.value or phase.toolcontext.opt_print_stats.value then 	bad_conception_elements.add(new LongParameterList(phase))
+		if phase.toolcontext.opt_no_abstract_implementation.value or phase.toolcontext.opt_all.value or phase.toolcontext.opt_print_stats.value then bad_conception_elements.add(new NoAbstractImplementation(phase))
+		if phase.toolcontext.opt_large_class.value or phase.toolcontext.opt_all.value or phase.toolcontext.opt_print_stats.value then bad_conception_elements.add(new LargeClass(phase))
 		# Collected all code smell if their state is true
 		for bad_conception_element in bad_conception_elements do
 			if bad_conception_element.collect(self.mclassdef,phase.toolcontext.modelbuilder) == true then array_badconception.add(bad_conception_element)
